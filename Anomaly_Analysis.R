@@ -10,6 +10,7 @@ current_dir <- getwd()
 source(paste0(current_dir,"/send_myself_mail.R"))
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRPartitioningParallel.R"))
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRUtils.R"))
+
 emissions_anomaly_extraction <- function(windowed_data){
   require(dbscan)
   
@@ -89,62 +90,15 @@ list_to_tibble <- function(data_subset_list){
     valid_df$BC <- smoothed_BC
   }
   
-  ## Given df
-  ## For each car
-  ## Take lat/long
-  ## Convert to UTM
-  Delta_D <- rep(NA,nrow(valid_df))
-  
-  valid_groups <- cbind(valid_df,Delta_D) %>%
+  valid_groups <- valid_df %>%
     mutate(Month = month(LST)) %>%
     mutate(Day = mday(LST)) %>%
     group_split(Month,Day,Index,.keep = FALSE)
   
-  ## Windowing distance
-  # windowing_distance <- 5 # km
-  # windowed_data <- list()
-  # list_index <- 1
-  # for (sp in 1:length(valid_groups)){
-  #   
-  #   ## Calculate change in distance in cars separated by day
-  #   current_split <- valid_groups[[sp]]
-  #   dists <- vector(,)
-  #   for (i in 2:nrow(current_split)){
-  #     l1_temp <- c(current_split$Lat1[i-1],current_split$Long1[i-1])
-  #     l2_temp <- c(current_split$Lat1[i],current_split$Long1[i])
-  #     dists[i] <- pracma::haversine(l1_temp,l2_temp,R=6371)
-  #   }
-  #   
-  #   current_split <- current_split %>%
-  #     select(-c(Delta_D)) %>%
-  #     mutate(Delta_D=dists)
-  #   current_split$Delta_D[is.na(current_split$Delta_D)] <- 0
-  #   
-  #   ## Subset the data further into 1000m long windows
-  #   index <- 1
-  #   while(index<=nrow(current_split)){
-  #     cum_dist <- 0
-  #     left_index <- index
-  #     while(cum_dist<windowing_distance & index < nrow(current_split)){
-  #       cum_dist <- cum_dist + current_split$Delta_D[index]
-  #       # print(cum_dist)
-  #       # Sys.sleep(0.5)
-  #       index <- index+1
-  #     }
-  #     right_index <- index
-  #     windowed_data[[list_index]] <- current_split[left_index:right_index,]
-  #     index <- index+1
-  #     list_index <- list_index + 1
-  #     # if(list_index==994) {
-  #     #   print("HI")
-  #     # }l
-  #   }
-  #   index <- 1
-  #   
-  # }
+  
   lens <- unlist(lapply(valid_groups, function(x) return(nrow(x))),use.names = F)
   
-  windowed_data <- valid_groups[lens>600]
+  windowed_data <- valid_groups[lens>600] %>% as.list()
 }
 
 
@@ -317,7 +271,7 @@ list_to_tibble <- function(data_subset_list){
           current_partition <- partitionRoutine(markov_poll,markov_timestamps,
                                             bootstrap_iterations = 50,
                                             transform_string = "log",
-                                            length_tolerance = 0.4,
+                                            length_tolerance = 0.2,
                                             cores = 2)
 
           num_pts[k] <- length(which(current_partition$States==1))
