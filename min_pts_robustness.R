@@ -1,5 +1,5 @@
 ## Analyzing results from min_pts_storage_boot
-files = list.files(paste0(getwd(),"/Houston_Mobile_Dynamic_PCA/min_pts_storage_boot"))
+files = list.files(paste0(getwd(),"/min_pts_storage_boot"),pattern = "constant_tol")
 
 min_pts_res <- vector(mode = "list",length = length(files))
 
@@ -23,7 +23,7 @@ mean_absolute_difference <- function(x,y){
 
 for (i in 1:length(files)){
   min_pts_res[[i]] <- read.csv(file = 
-                      paste0(getwd(),"/Houston_Mobile_Dynamic_PCA/min_pts_storage_boot/",files[i]),
+                      paste0(getwd(),"/min_pts_storage_boot/",files[i]),
                row.names = 1)
   
   colnames(min_pts_res[[i]]) <- "min_pts"
