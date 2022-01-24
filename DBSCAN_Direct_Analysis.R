@@ -2,7 +2,7 @@
 require(dbscan)
 require(dplyr)
 require(tidyverse)
-
+require(parallel)
 ## Required functions
 find_the_knee <- function(poll_data,min_pts){
   
@@ -35,29 +35,24 @@ core_cluster_compactness <- function(dbscan_mod,poll_data){
   return(avg_distance)
 }
 
-return_anomalies <- function(windowed_data,min_pts_param){
+return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::detectCores()-2){
   poll_data <- windowed_data %>%
       dplyr::select(BC,CO2,NOx,UFP) %>%
       mutate_all(scale)
     
-  # min_dist <- find_the_knee(poll_data,min_pts = min_pts_param)
-  
-  # dbscan_res <- dbscan(poll_data,eps = min_dist, minPts = min_pts_param)
-  # 
-  # assignments <- dbscan_res$cluster
-  # 
-  # assignments[assignments==0] <- 2
-  
-  # return("Done")
-  # return(cbind(windowed_data,"Anomaly"=assignments))
+  cl <- makeCluster(no_cores)
   
   eps_grid <- seq(0.1,3,by = 0.1)
   
-  mod_storage <- vector(mode = "list", length = length(eps_grid))
+  pre_mod_storage <- vector(mode = "list", length = length(eps_grid))
   
   for(i in 1:length(eps_grid)){
-    mod_storage[[i]] <- dbscan::dbscan(poll_data,eps = eps_grid[i], minPts = min_pts_param)
+    pre_mod_storage[[i]] <- list(poll_data,eps_grid[i],min_pts_param)
   }
+  
+  clusterExport(cl=cl,varlist = c("pre_mod_storage"),envir = environment())
+  
+  mod_storage <- parallel::parLapply(cl,pre_mod_storage,function(x) dbscan::dbscan(x[[1]],eps = x[[2]],minPts = x[[3]]))
   
   cluster_compactness <- unlist(
     lapply(mod_storage,function(x) core_cluster_compactness(x,poll_data)),
@@ -72,6 +67,8 @@ return_anomalies <- function(windowed_data,min_pts_param){
   assignments[assignments==0] <- 2
   
   print(eps_grid[optimal_index])
+  
+  stopCluster(cl=cl)
   
   return(cbind(windowed_data,"Anomaly"=assignments))
 }
@@ -98,7 +95,7 @@ return_anomalies <- function(windowed_data,min_pts_param){
 
   dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
   
-  db_tibble <- list_to_tibble(dbOutput)
+  # db_tibble <- list_to_tibble(dbOutput)
     
   # for(j in 1:30){
   #   print(paste0("Iteration: ",j))
