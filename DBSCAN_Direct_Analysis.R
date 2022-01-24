@@ -3,27 +3,21 @@ require(dbscan)
 require(dplyr)
 require(tidyverse)
 
-
 ## Required functions
 find_the_knee <- function(poll_data,min_pts){
-  t1_start <- Sys.time()
+  
   tt <- kNNdist(poll_data,k=min_pts,approx = 1)
-  print(Sys.time()-t1_start)
-  print("knndists construction completed")
+  
   t2_start <- Sys.time()
   dist_subset <- tt[1:30]
   for(i in 31:length(tt)){
     if(tt[i] > (mean(dist_subset) + 3*sd(dist_subset))){
-      print(Sys.time()-t2_start)
-      print("Knee identification completed")
       return(tt[i])
       break
     } else{
       dist_subset <- c(dist_subset,tt[i])
     }
   }
-  print(Sys.time()-t2_start)
-  print("Knee identification completed")
   return(tt[length(tt)])
 }
 
@@ -57,7 +51,7 @@ return_anomalies <- function(windowed_data,min_pts_param){
   # return("Done")
   # return(cbind(windowed_data,"Anomaly"=assignments))
   
-  eps_grid <- seq(0.5,5,by = 0.5)
+  eps_grid <- seq(0.1,3,by = 0.1)
   
   mod_storage <- vector(mode = "list", length = length(eps_grid))
   
@@ -84,22 +78,28 @@ return_anomalies <- function(windowed_data,min_pts_param){
 
 
 {
+  start_time <- Sys.time()
+  
   current_dir <- getwd()
   
-  load(paste0(getwd(),"/windowed_subset.RData")) %>% as.list()
+  source(paste0(current_dir,"/send_myself_mail.R"))
   
-  windowed_subset <- lapply(windowed_subset,function(x)x %>%  dplyr::select(-c(Anomaly)))
+  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
   
-  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[1:6,2]
+  windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
+  
+  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
   
   aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
 
   for(j in 1:length(aggregate_list)){
-    aggregate_list[[j]] <- list(windowed_subset[[j]],min_pts_to_use[j])
+    aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
   }
 
   dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
   
+  db_tibble <- list_to_tibble(dbOutput)
+    
   # for(j in 1:30){
   #   print(paste0("Iteration: ",j))
   #   
@@ -116,5 +116,6 @@ return_anomalies <- function(windowed_data,min_pts_param){
   #   }
   # }
   
+  send_message_to_myself("Routine Completed",paste0("Routine took", Sys.time()-start_time))
 
 }

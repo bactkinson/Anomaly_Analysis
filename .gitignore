@@ -6,3 +6,5 @@ Anomalous_Emissions.csv
 windowed_data.RData
 other_windowed_subset.RData
 Anomaly_Analysis_Plots/Iteration_*
+Anomalous_Emisssions_Results/Anomalous_*
+Anomalous_Emissions_Results/
