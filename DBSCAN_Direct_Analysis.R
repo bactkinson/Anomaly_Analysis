@@ -95,24 +95,37 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
   
+  # for(j in 1:20){
+  #     file_string <- paste0("Iteration_",j,"cv.png")
+  #     png(paste0(current_dir,"/Anomaly_Analysis_Plots/",file_string))
+  #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
+  #     dev.off()
+  # }
+  
   # db_tibble <- list_to_tibble(dbOutput)
     
-  # for(j in 1:30){
-  #   print(paste0("Iteration: ",j))
-  #   
-  #   current_min_pts <- min_pts_to_use[j]
-  #   
-  #   
-  # 
-  #   # par(mfrow=c(3,2))
-  #   if(F){
-  #     file_string <- paste0("Iteration_",j,".png")
-  #     png(paste0(current_dir,"/Anomaly_Analysis_Plots/",file_string))
-  #     plot(NOx~CO2, data = poll_data,  col = assignments,pch = 20)
-  #     dev.off()
-  #   }
-  # }
+  
   
   send_message_to_myself("Routine Completed",paste0("Routine took", Sys.time()-start_time))
 
+}
+
+{
+  list_to_tibble <- function(data_subset_list){
+  # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+  # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+  # return(output_tibble)
+  
+  output_tibble <- data_subset_list[[1]]
+  for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
+  return(output_tibble)
+  }
+  
+  db_tibble <- list_to_tibble(dbOutput)
+  
+  anomalous_emissions <- db_tibble %>%
+    select(LST,BC,CO2,NOx,UFP,Anomaly) %>%
+    filter(Anomaly==2)
+  
+  
 }
