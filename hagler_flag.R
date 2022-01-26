@@ -43,15 +43,30 @@ hagler_cov <- function(windowed_data){
   return(labeled_data)
 }
 
-t_vec <- c(1,3,2,2.5,5,NA)
-
 {
   current_dir <- getwd()
   
-  load(paste0(current_dir,"/windowed_subset.RData")) %>% as.list() 
+  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list() 
   
-  windowed_subset <- lapply(windowed_subset,function(x) x %>% select(-c(Anomaly)))
+  windowed_data <- lapply(windowed_data,function(x) x %>% select(-c(Delta_D)))
   
-  hagler_flags <- lapply(windowed_subset,function(x) hagler_cov(x))
-  
+  hagler_flags <- lapply(windowed_data,function(x) hagler_cov(x))
 }
+
+## Post data processing
+# {
+#   list_to_tibble <- function(data_subset_list){
+#   
+#     output_tibble <- data_subset_list[[1]]
+#     for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
+#     return(output_tibble)
+#   }
+#   
+#   hagler_tibble <- list_to_tibble(hagler_flags)
+#   
+#   anomalous_emissions <- hagler_tibble %>%
+#     filter(Anomaly==2) %>%
+#     select(LST,BC,CO2,NOx,UFP)
+#   
+#   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_Hagler.csv"))
+# }

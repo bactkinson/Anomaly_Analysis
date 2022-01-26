@@ -3,6 +3,8 @@ require(gmailr)
 setwd("../")
 
 gm_auth_configure(path=paste0(getwd(),"/credentials.json"))
+
+setwd(paste0(getwd(),"/Anomaly_Analysis/"))
   
 gm_auth(email = "blakeactkinson@gmail.com",
           path = NULL,
