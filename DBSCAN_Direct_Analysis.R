@@ -124,8 +124,8 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   db_tibble <- list_to_tibble(dbOutput)
   
   anomalous_emissions <- db_tibble %>%
-    select(LST,BC,CO2,NOx,UFP,Anomaly) %>%
-    filter(Anomaly==2)
+    filter(Anomaly==2) %>%
+    select(LST,BC,CO2,NOx,UFP)
   
-  
+  # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))  
 }

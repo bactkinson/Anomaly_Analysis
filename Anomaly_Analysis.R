@@ -305,105 +305,50 @@ list_to_tibble <- function(data_subset_list){
 
   send_message_to_myself("Routine completed", "routine completed")
 }
-#   
-# {
-#   require(dbscan)
-# 
-#   find_the_knee <- function(poll_data,min_pts){
-#     tt <- sort(kNNdist(poll_data,k=min_pts))
-# 
-#     dist_subset <- tt[1:30]
-#     for(i in 31:length(tt)){
-#       if(tt[i] > (mean(dist_subset) + 3*sd(dist_subset))){
-#         return(tt[i])
-#         break
-#       } else{
-#         dist_subset <- c(dist_subset,tt[i])
-#       }
-#     }
-#     return(tt[length(tt)])
-#   }
-# 
-#   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
-#   
-#   
-#   
-#   for(j in 1:length(windowed_data)){
-#     print(paste0("Iteration: ",j))
-#     
-#     current_min_pts <- min_pts_to_use[j]
-#     
-#     poll_data <- windowed_data[[j]] %>%
-#       dplyr::select(BC,CO2,NOx,UFP) %>%
-#       mutate_all(scale)
-#     
-#     min_dist <- find_the_knee(poll_data,min_pts = current_min_pts)
-# 
-#     dbscan_res <- dbscan(poll_data,eps = min_dist, minPts = current_min_pts)
-# 
-#     print(dbscan_res)
-# 
-#     assignments <- dbscan_res$cluster
-# 
-#     assignments[assignments==0] <- 5
-# 
-#     # par(mfrow=c(3,2))
-#     if(T){
-#       file_string <- paste0("Iteration_",j,".png")
-#       png(paste0(current_dir,"/Anomaly_Analysis_Plots/",file_string))
-#       plot(NOx~CO2, data = poll_data,  col = assignments,pch = 20)
-#       dev.off()
-#     }
-# 
-# 
-#     # plot(BC~CO2, data = poll_data,  col = assignments,pch = 20)
-#     # plot(UFP~CO2, data = poll_data,  col = assignments,pch = 20)
-#     # plot(BC~NOx, data = poll_data,  col = assignments,pch = 20)
-#     # plot(UFP~NOx, data = poll_data,  col = assignments,pch = 20)
-#     # plot(UFP~BC, data = poll_data,  col = assignments,pch = 20)
-#     Sys.sleep(5)
-#   }
-#   send_message_to_myself("Routine completed", "routine completed")
-# 
-# }
-# 
-# 
-# {
-#   labeled_data <- lapply(windowed_data, function(x) emissions_anomaly_extraction(x))
-#   anomalous_data <- list_to_tibble(labeled_data)
-#   
-#   # print(qplot("NOx",NOx,data=full_data,geom = "boxplot"))
-#   
-#   anomalous_emissions <- anomalous_data %>%
-#     select(BC,CO2,NOx,UFP) %>%
-#     mutate_all(scale)
-# 
-#   anom_list <- replicate(10,anomalous_emissions,simplify=FALSE)
-#   
-#   random_subsets <- lapply(anom_list,function(x) dplyr::sample_n(x,10000))
-#   
-#   for(i in 1:10){
-#     print(paste0("i: ", i))
-#     require(cluster)
-#     gap_stat <- clusGap(random_subsets[[i]], FUN = kmeans, nstart = 100, K.max = 10, B = 10)
-#     print(factoextra::fviz_gap_stat(gap_stat) + ggtitle(paste0("Iter: ", i)))
-#   }
-#   
-#   anom_kmeans <- kmeans(anomalous_emissions,centers = 3, nstart = 100)
-#   
-#   clustered_data <- cbind(anomalous_emissions, "Cluster" = as.factor(anom_kmeans$cluster))
-#   
-#   clustered_data_long <- clustered_data %>%
-#     pivot_longer(c(BC,CO2,NOx,UFP), names_to = "Pollutant", values_to = "Measurement")
-#   
-#   print(
-#     ggplot(data=clustered_data_long) + 
-#     geom_boxplot(aes(x=Cluster,y=Measurement)) +
-#     facet_wrap(~Pollutant, scale="free")
-#   )
-# }
-# 
-# 
-# 
-# 
+   
+## Analyzing anomalous emissions results
+{
+  anomalous_data <- read.csv("C:/Users/bwa2/Documents/Academic Work/Research/Anomaly_Analysis/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv",
+                             row.names = 1)
+
+  # print(qplot("NOx",NOx,data=full_data,geom = "boxplot"))
+
+  anomalous_emissions <- anomalous_data %>%
+    select(BC,CO2,NOx,UFP) %>%
+    mutate_all(scale)
+
+  anom_list <- replicate(5,anomalous_emissions,simplify=FALSE)
+
+  random_subsets <- lapply(anom_list,function(x) dplyr::sample_n(x,60000))
+
+  nb_clust_res <- vector(mode = "list", length = length(random_subsets))
+  
+  start_time <- Sys.time()
+  for(i in 1:length(random_subsets)){
+    print(paste0("i: ", i))
+    # require(NbClust)
+    # nb_clust_res <- NbClust::NbClust(random_subsets[[i]],method = "kmeans", distance = "euclidean", min.nc = 2, max.nc = 10)
+    require(cluster)
+    gap_stat <- clusGap(random_subsets[[i]], FUN = kmeans, nstart = 100, K.max = 10, B = 10)
+    print(factoextra::fviz_gap_stat(gap_stat) + ggtitle(paste0("Iter: ", i)))
+  }
+  
+  anom_kmeans <- kmeans(anomalous_emissions,centers = 2, nstart = 100)
+
+  clustered_data <- cbind(anomalous_emissions, "Cluster" = as.factor(anom_kmeans$cluster))
+
+  clustered_data_long <- clustered_data %>%
+    pivot_longer(c(BC,CO2,NOx,UFP), names_to = "Pollutant", values_to = "Measurement")
+
+  print(
+    ggplot(data=clustered_data_long) +
+    geom_boxplot(aes(x=Cluster,y=Measurement)) +
+    facet_wrap(~Pollutant, scale="free")
+  )
+  send_message_to_myself("Routine Completed on GriffinLab", paste0("Routine completed at ", Sys.time()-start_time))
+}
+
+
+
+
 
