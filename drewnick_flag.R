@@ -48,7 +48,7 @@ drewnick_flag <- function(windowed_data){
     
     while(pt_index <= length(current_data)){
       if(current_data[pt_index]>(current_data[pt_index-1]+3*background_sd) & 
-         seconds_diff(current_timestamps[pt_index],current_timestamps[pt_index-1])==1){
+         seconds_diff(current_timestamps[pt_index],current_timestamps[pt_index-1])<5){
         
         # flags[pt_index] <- 2
         adjacent_background_point <- current_data[pt_index-1]
@@ -82,17 +82,34 @@ drewnick_flag <- function(windowed_data){
   return(cbind(windowed_data,"Anomaly"=finalized_flags))
 }
 
+## Synthetic data testing
+# {
+#   synth_data <- c(1,1.1,1,0.9,1.2,1,8,8.2,8,1,1.5,3.4,1,1,8,9,8,8)  
+#   start_date <- as.POSIXct("08-02-1994 08:00:00", tz = Sys.timezone(), format = c("%m-%d-%Y %H:%M:%S"))
+#   second_start_date <- as.POSIXct("08-02-1994 08:00:14", tz = Sys.timezone(), format = c("%m-%d-%Y %H:%M:%S"))
+#   first_time_seq <- seq.POSIXt(from = start_date,by="1 s",length.out=length(synth_data)/2)
+#   sec_time_seq <- seq.POSIXt(from = second_start_date,by="1 s",length.out=length(synth_data)/2)
+#   time_seq <- c(first_time_seq,sec_time_seq)
+#   
+#   
+#   poll_data <- tibble("CO2"=synth_data,"UFP"=synth_data,"LST"=time_seq)
+#   
+#   qz <- drewnick_flag(poll_data)
+#   plot(UFP~LST,data=qz,col=Anomaly)
+# }
+
+
 {
   current_dir <- getwd()
 
   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
 
   windowed_data <- lapply(windowed_data,function(x) x %>% select(-c(Delta_D)))
-  
+
   drewnick_flags <- lapply(windowed_data,function(x) drewnick_flag(x))
 }
-
-## Save results
+# 
+# ## Save results
 {
   list_to_tibble <- function(data_subset_list){
 
@@ -112,7 +129,7 @@ drewnick_flag <- function(windowed_data){
 
 {
   for(k in 1:20){
-    plot(NOx~LST,data = drewnick_flags[[k]],col = Anomaly)
-    Sys.sleep(10)
+    plot(UFP~LST,data = drewnick_flags[[k]],col = Anomaly)
+    Sys.sleep(5)
   }
 }
