@@ -11,20 +11,6 @@ source(paste0(current_dir,"/send_myself_mail.R"))
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRPartitioningParallel.R"))
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRUtils.R"))
 
-emissions_anomaly_extraction <- function(windowed_data){
-  require(dbscan)
-  
-  current_data <- windowed_data %>%
-    select(BC,NOx,CO2,UFP) %>%
-    mutate_all(scale)
-
-  dbscan_res <- dbscan(current_data,eps = 1.7, minPts = nrow(current_data)/3)
-  dbs_assign <- dbscan_res$cluster
-  dbs_assign[dbs_assign==0] = 2
-  return(cbind(windowed_data,"Anomaly" = dbs_assign) %>%
-           filter(Anomaly==2))
-}
-
 list_to_tibble <- function(data_subset_list){
   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
@@ -236,73 +222,73 @@ list_to_tibble <- function(data_subset_list){
 
 # Determine number of points needed for DBSCAN routine.
 
-{
-  min_pts_storage <- numeric(length(windowed_data))
-
-  find_min_pts <- function(windowed_data,polls_to_pull){
-    ## Given windowed data frame
-    ## For each poll in polls_to_pull
-    ## Create data frame with poll, time stamps
-    ## Run partitioning routine on subsetted data_frame
-    ## From partitioning routine, determine the number of points
-    ## Classified as background
-    ## Store number of points classified as background
-    ## Repeat for all polls
-    ## Once iteration through all polls in polls_to_pull complete,
-    ## compute average of number pts classified as background
-    ## Return average.
-
-    num_pts <- numeric(length(polls_to_pull))
-
-    markov_timestamps <- windowed_data %>%
-      dplyr::select(LST) %>%
-      unlist(use.names = FALSE) %>%
-      as.POSIXct(tz = Sys.timezone(),origin = "1970-01-01")
-
-    for(k in 1:length(polls_to_pull)){
-      current_poll <- polls_to_pull[k]
-
-      markov_poll <- windowed_data %>%
-        dplyr::select(current_poll) %>%
-        unlist(.,use.names = FALSE)
-
-      tryCatch(
-        {
-          current_partition <- partitionRoutine(markov_poll,markov_timestamps,
-                                            bootstrap_iterations = 50,
-                                            transform_string = "log",
-                                            length_tolerance = 0.2,
-                                            cores = 2)
-
-          num_pts[k] <- length(which(current_partition$States==1))
-        },
-        error = function(cond){
-          print("Error condition executed")
-          num_pts[k] <- NA
-        }
-      )
-    }
-
-    min_pts <- mean(num_pts,na.rm = TRUE)
-    return(min_pts)
-  }
-
-  for(j in 1:length(windowed_data)){
-    poll_data <- windowed_data[[j]] %>%
-      dplyr::select(BC,CO2,NOx,UFP) %>%
-      mutate_all(scale)
-
-    # sizes <- lof(poll_data,minPts = 5)
-
-    min_pts <- find_min_pts(windowed_data[[j]],c("BC","CO2","NOx","UFP"))
-
-    min_pts_storage[j] <- min_pts
-
-    print(paste0("j: ",j))
-    print(min_pts)
-    print("------")
-  }
-
-  send_message_to_myself("Routine completed", "routine completed")
-}
-   
+# {
+#   min_pts_storage <- numeric(length(windowed_data))
+# 
+#   find_min_pts <- function(windowed_data,polls_to_pull){
+#     ## Given windowed data frame
+#     ## For each poll in polls_to_pull
+#     ## Create data frame with poll, time stamps
+#     ## Run partitioning routine on subsetted data_frame
+#     ## From partitioning routine, determine the number of points
+#     ## Classified as background
+#     ## Store number of points classified as background
+#     ## Repeat for all polls
+#     ## Once iteration through all polls in polls_to_pull complete,
+#     ## compute average of number pts classified as background
+#     ## Return average.
+# 
+#     num_pts <- numeric(length(polls_to_pull))
+# 
+#     markov_timestamps <- windowed_data %>%
+#       dplyr::select(LST) %>%
+#       unlist(use.names = FALSE) %>%
+#       as.POSIXct(tz = Sys.timezone(),origin = "1970-01-01")
+# 
+#     for(k in 1:length(polls_to_pull)){
+#       current_poll <- polls_to_pull[k]
+# 
+#       markov_poll <- windowed_data %>%
+#         dplyr::select(current_poll) %>%
+#         unlist(.,use.names = FALSE)
+# 
+#       tryCatch(
+#         {
+#           current_partition <- partitionRoutine(markov_poll,markov_timestamps,
+#                                             bootstrap_iterations = 50,
+#                                             transform_string = "log",
+#                                             length_tolerance = 0.2,
+#                                             cores = 2)
+# 
+#           num_pts[k] <- length(which(current_partition$States==1))
+#         },
+#         error = function(cond){
+#           print("Error condition executed")
+#           num_pts[k] <- NA
+#         }
+#       )
+#     }
+# 
+#     min_pts <- mean(num_pts,na.rm = TRUE)
+#     return(min_pts)
+#   }
+# 
+#   for(j in 1:length(windowed_data)){
+#     poll_data <- windowed_data[[j]] %>%
+#       dplyr::select(BC,CO2,NOx,UFP) %>%
+#       mutate_all(scale)
+# 
+#     # sizes <- lof(poll_data,minPts = 5)
+# 
+#     min_pts <- find_min_pts(windowed_data[[j]],c("BC","CO2","NOx","UFP"))
+# 
+#     min_pts_storage[j] <- min_pts
+# 
+#     print(paste0("j: ",j))
+#     print(min_pts)
+#     print("------")
+#   }
+# 
+#   send_message_to_myself("Routine completed", "routine completed")
+# }
+#    
