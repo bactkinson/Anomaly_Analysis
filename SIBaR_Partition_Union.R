@@ -32,8 +32,9 @@ sibar_anomalies <- function(windowed_data,polls_to_pull){
         current_partition <- partitionRoutine(markov_poll,markov_timestamps,
                                               bootstrap_iterations = 50,
                                               transform_string = "log",
-                                              length_tolerance = 0.2)
-        
+                                              length_tolerance = 0.05,
+                                              threshold = 10)
+                                              
         state_res[,k] <- current_partition$States
         
       },
@@ -72,7 +73,7 @@ sibar_anomalies <- function(windowed_data,polls_to_pull){
 
   anomalous_emissions <- sibar_tibble %>%
     filter(Anomaly==2) %>%
-    select(LST,BC,CO2,NOx,UFP)
+    dplyr::select(LST,BC,CO2,NOx,UFP)
 
-  write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_SIBaR.csv"))
+#   write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_SIBaR.csv"))
 }

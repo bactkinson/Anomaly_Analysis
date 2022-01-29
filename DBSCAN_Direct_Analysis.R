@@ -6,7 +6,7 @@ require(parallel)
 ## Required functions
 find_the_knee <- function(poll_data,min_pts){
   
-  tt <- kNNdist(poll_data,k=min_pts,approx = 1)
+  tt <- kNNdist(poll_data,k=min_pts)
   
   t2_start <- Sys.time()
   dist_subset <- tt[1:30]
@@ -39,36 +39,46 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   poll_data <- windowed_data %>%
       dplyr::select(BC,CO2,NOx,UFP) %>%
       mutate_all(scale)
-    
-  cl <- makeCluster(no_cores)
   
-  eps_grid <- seq(0.1,3,by = 0.1)
+  # cl <- makeCluster(no_cores)
   
-  pre_mod_storage <- vector(mode = "list", length = length(eps_grid))
+  # eps_grid <- seq(0.1,3,by = 0.1)
   
-  for(i in 1:length(eps_grid)){
-    pre_mod_storage[[i]] <- list(poll_data,eps_grid[i],min_pts_param)
-  }
+  # pre_mod_storage <- vector(mode = "list", length = length(eps_grid))
   
-  clusterExport(cl=cl,varlist = c("pre_mod_storage"),envir = environment())
+  # for(i in 1:length(eps_grid)){
+  #   pre_mod_storage[[i]] <- list(poll_data,eps_grid[i],min_pts_param)
+  # }
   
-  mod_storage <- parallel::parLapply(cl,pre_mod_storage,function(x) dbscan::dbscan(x[[1]],eps = x[[2]],minPts = x[[3]]))
+  # clusterExport(cl=cl,varlist = c("pre_mod_storage"),envir = environment())
+  # 
+  # mod_storage <- parallel::parLapply(cl,pre_mod_storage,function(x) dbscan::dbscan(x[[1]],eps = x[[2]],minPts = x[[3]]))
+  # 
+  # cluster_compactness <- unlist(
+  #   lapply(mod_storage,function(x) core_cluster_compactness(x,poll_data)),
+  #   use.names = FALSE)
+  # 
+  # optimal_index <- which.min(cluster_compactness)
+  # 
+  # optimal_mod <- mod_storage[[optimal_index]]
+  # 
+  # assignments <- optimal_mod$cluster
+  # 
+  # assignments[assignments==0] <- 2
+  # 
+  # print(eps_grid[optimal_index])
+  # 
+  # stopCluster(cl=cl)
   
-  cluster_compactness <- unlist(
-    lapply(mod_storage,function(x) core_cluster_compactness(x,poll_data)),
-    use.names = FALSE)
+  current_eps <- find_the_knee(poll_data,min_pts = floor(min_pts_param/2))
   
-  optimal_index <- which.min(cluster_compactness)
+  db_clust <- dbscan::dbscan(poll_data,minPts = min_pts_param,eps = current_eps)
   
-  optimal_mod <- mod_storage[[optimal_index]]
-  
-  assignments <- optimal_mod$cluster
+  assignments <- db_clust$cluster
   
   assignments[assignments==0] <- 2
   
-  print(eps_grid[optimal_index])
-  
-  stopCluster(cl=cl)
+  print("Execution complete")
   
   return(cbind(windowed_data,"Anomaly"=assignments))
 }
@@ -76,24 +86,31 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 {
   start_time <- Sys.time()
-  
+
   current_dir <- getwd()
-  
+
   source(paste0(current_dir,"/send_myself_mail.R"))
-  
+
   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
-  
+
   windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
-  
+
   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
-  
+
   aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
 
   for(j in 1:length(aggregate_list)){
     aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
   }
 
-  dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
+  # dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
+  
+  dbOutput <- vector(mode = "list",length = length(aggregate_list))
+  
+  for(j in 1:length(aggregate_list)){
+    print(j)
+    dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
+  }
   
   # for(j in 1:20){
   #     file_string <- paste0("Iteration_",j,"cv.png")
@@ -101,31 +118,78 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
   #     dev.off()
   # }
-  
+
   # db_tibble <- list_to_tibble(dbOutput)
-    
-  
-  
-  send_message_to_myself("Routine Completed",paste0("Routine took", Sys.time()-start_time))
 
 }
 
-{
-  list_to_tibble <- function(data_subset_list){
-  # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
-  # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
-  # return(output_tibble)
-  
-  output_tibble <- data_subset_list[[1]]
-  for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
-  return(output_tibble)
-  }
-  
-  db_tibble <- list_to_tibble(dbOutput)
-  
-  anomalous_emissions <- db_tibble %>%
-    filter(Anomaly==2) %>%
-    select(LST,BC,CO2,NOx,UFP)
-  
-  # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))  
-}
+# {
+#   list_to_tibble <- function(data_subset_list){
+#   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+#   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+#   # return(output_tibble)
+#   
+#   output_tibble <- data_subset_list[[1]]
+#   for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
+#   return(output_tibble)
+#   }
+#   
+#   db_tibble <- list_to_tibble(dbOutput)
+#   
+#   anomalous_emissions <- db_tibble %>%
+#     filter(Anomaly==2) %>%
+#     select(LST,BC,CO2,NOx,UFP)
+#   
+#   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))  
+# }
+
+## Finding the knee sensitivity analysis.
+# {
+#   memory.limit(size = 384000)
+#   
+#   start_time <- Sys.time()
+#   
+#   current_dir <- getwd()
+#   
+#   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
+#   
+#   windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
+#   
+#   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
+#   
+#   no_subs <- 10
+#   
+#   knees_mat <- matrix(,nrow = 5,ncol = no_subs)
+#   
+#   
+#   for(i in 1:no_subs){
+#     
+#     pts <- min_pts_to_use[i]
+#     
+#     poll_data <- windowed_data[[i]] %>%
+#       dplyr::select(BC,CO2,NOx,UFP) %>%
+#       mutate_all(scale)
+#     
+#     increments <- c(floor(pts/5),floor(pts/4),floor(pts/3),floor(pts/2),pts)
+#     
+#     knees_mat[,i] <- sapply(increments,function(x) find_the_knee(poll_data,x))
+#   }
+# 
+#   print(Sys.time()-start_time)
+# }
+# 
+# {
+#   knees_tibble <- as_tibble(knees_mat) %>%
+#     dplyr::rename_with(~sub("V","Window_",.x)) %>%
+#     pivot_longer(cols = everything(),values_to = "Value", names_to = "Window")
+#   
+# 
+#   ggplot(data=knees_tibble) + 
+#     geom_boxplot(mapping=aes(x=Window,y=Value)) +
+#     theme_classic() + 
+#     ggtitle("Knee distributions for the first 10 data windows")
+#   
+#  percentage_diffs <- apply(knees_mat,2,function(x) abs(x[4]-x[5])/x[5]*100) 
+#  
+#  mean(percentage_diffs)
+# }

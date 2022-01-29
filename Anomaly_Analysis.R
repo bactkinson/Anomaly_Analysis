@@ -6,8 +6,7 @@ require(gmailr)
 require(parallel)
 options(error = recover)
 
-current_dir <- getwd()
-source(paste0(current_dir,"/send_myself_mail.R"))
+setwd("../")
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRPartitioningParallel.R"))
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRUtils.R"))
 
@@ -86,6 +85,14 @@ list_to_tibble <- function(data_subset_list){
   
   windowed_data <- valid_groups[lens>600] %>% as.list()
 }
+
+## Saving data to send to Kathy.
+# {
+#   poll_data <- windowed_data[[1]] %>%
+#     dplyr::select(LST,CO2,NOx,UFP)
+#   
+#   write.csv(poll_data,paste0(getwd(),"Poll_Day_1.csv"))
+# }
 
 
 # {
@@ -291,4 +298,3 @@ list_to_tibble <- function(data_subset_list){
 # 
 #   send_message_to_myself("Routine completed", "routine completed")
 # }
-#    
