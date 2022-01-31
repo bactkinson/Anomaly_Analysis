@@ -1,3 +1,4 @@
+# options(error=recover)
 ## Load required packages
 require(dbscan)
 require(dplyr)
@@ -84,12 +85,72 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 }
 
 
+# {
+#   start_time <- Sys.time()
+# 
+#   current_dir <- getwd()
+# 
+#   source(paste0(current_dir,"/send_myself_mail.R"))
+# 
+#   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
+# 
+#   windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
+# 
+#   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
+# 
+#   aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
+# 
+#   for(j in 1:length(aggregate_list)){
+#     aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
+#   }
+# 
+#   dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
+#   
+#   # dbOutput <- vector(mode = "list",length = length(aggregate_list))
+#   # 
+#   # for(j in 1:length(aggregate_list)){
+#   #   print(j)
+#   #   dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
+#   # }
+#   
+#   # for(j in 1:20){
+#   #     file_string <- paste0("Iteration_",j,"cv.png")
+#   #     png(paste0(current_dir,"/Anomaly_Analysis_Plots/",file_string))
+#   #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
+#   #     dev.off()
+#   # }
+# 
+#   # db_tibble <- list_to_tibble(dbOutput)
+# 
+# }
+
+# {
+#   list_to_tibble <- function(data_subset_list){
+#   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+#   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+#   # return(output_tibble)
+# 
+#   output_tibble <- data_subset_list[[1]]
+#   for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
+#   return(output_tibble)
+#   }
+# 
+#   db_tibble <- list_to_tibble(dbOutput)
+# 
+#   anomalous_emissions <- db_tibble %>%
+#     filter(Anomaly==2) %>%
+#     select(LST,BC,CO2,NOx,UFP)
+# 
+#   write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_EpsOver2.csv"))
+# }
+
+## Finding the knee sensitivity analysis.
 {
+  memory.limit(size = 384000)
+
   start_time <- Sys.time()
 
   current_dir <- getwd()
-
-  source(paste0(current_dir,"/send_myself_mail.R"))
 
   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
 
@@ -97,86 +158,26 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
 
-  aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
+  no_subs <- 277
 
-  for(j in 1:length(aggregate_list)){
-    aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
+  knees_mat <- matrix(,nrow = 5,ncol = no_subs)
+
+
+  for(i in 1:no_subs){
+
+    pts <- min_pts_to_use[i]
+
+    poll_data <- windowed_data[[i]] %>%
+      dplyr::select(BC,CO2,NOx,UFP) %>%
+      mutate_all(scale)
+
+    increments <- c(floor(pts/5),floor(pts/4),floor(pts/3),floor(pts/2),pts)
+
+    knees_mat[,i] <- sapply(increments,function(x) find_the_knee(poll_data,x))
   }
 
-  # dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
-  
-  dbOutput <- vector(mode = "list",length = length(aggregate_list))
-  
-  for(j in 1:length(aggregate_list)){
-    print(j)
-    dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
-  }
-  
-  # for(j in 1:20){
-  #     file_string <- paste0("Iteration_",j,"cv.png")
-  #     png(paste0(current_dir,"/Anomaly_Analysis_Plots/",file_string))
-  #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
-  #     dev.off()
-  # }
-
-  # db_tibble <- list_to_tibble(dbOutput)
-
+  print(Sys.time()-start_time)
 }
-
-# {
-#   list_to_tibble <- function(data_subset_list){
-#   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
-#   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
-#   # return(output_tibble)
-#   
-#   output_tibble <- data_subset_list[[1]]
-#   for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
-#   return(output_tibble)
-#   }
-#   
-#   db_tibble <- list_to_tibble(dbOutput)
-#   
-#   anomalous_emissions <- db_tibble %>%
-#     filter(Anomaly==2) %>%
-#     select(LST,BC,CO2,NOx,UFP)
-#   
-#   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))  
-# }
-
-## Finding the knee sensitivity analysis.
-# {
-#   memory.limit(size = 384000)
-#   
-#   start_time <- Sys.time()
-#   
-#   current_dir <- getwd()
-#   
-#   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
-#   
-#   windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
-#   
-#   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
-#   
-#   no_subs <- 10
-#   
-#   knees_mat <- matrix(,nrow = 5,ncol = no_subs)
-#   
-#   
-#   for(i in 1:no_subs){
-#     
-#     pts <- min_pts_to_use[i]
-#     
-#     poll_data <- windowed_data[[i]] %>%
-#       dplyr::select(BC,CO2,NOx,UFP) %>%
-#       mutate_all(scale)
-#     
-#     increments <- c(floor(pts/5),floor(pts/4),floor(pts/3),floor(pts/2),pts)
-#     
-#     knees_mat[,i] <- sapply(increments,function(x) find_the_knee(poll_data,x))
-#   }
-# 
-#   print(Sys.time()-start_time)
-# }
 # 
 # {
 #   knees_tibble <- as_tibble(knees_mat) %>%
