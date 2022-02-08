@@ -1,3 +1,4 @@
+# options(error=recover)
 ## Load required packages
 require(dbscan)
 require(dplyr)
@@ -186,40 +187,41 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))
 }
 
+
 ## Finding the knee sensitivity analysis.
-# {
-#   memory.limit(size = 384000)
-#   
-#   start_time <- Sys.time()
-#   
-#   current_dir <- getwd()
-#   
-#   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
-#   
-#   windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
-#   
-#   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
-#   
-#   no_subs <- 10
-#   
-#   knees_mat <- matrix(,nrow = 5,ncol = no_subs)
-#   
-#   
-#   for(i in 1:no_subs){
-#     
-#     pts <- min_pts_to_use[i]
-#     
-#     poll_data <- windowed_data[[i]] %>%
-#       dplyr::select(BC,CO2,NOx,UFP) %>%
-#       mutate_all(scale)
-#     
-#     increments <- c(floor(pts/5),floor(pts/4),floor(pts/3),floor(pts/2),pts)
-#     
-#     knees_mat[,i] <- sapply(increments,function(x) find_the_knee(poll_data,x))
-#   }
-# 
-#   print(Sys.time()-start_time)
-# }
+{
+  memory.limit(size = 384000)
+
+  start_time <- Sys.time()
+
+  current_dir <- getwd()
+
+  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
+
+  windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
+
+  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
+
+  no_subs <- 277
+
+  knees_mat <- matrix(,nrow = 5,ncol = no_subs)
+
+
+  for(i in 1:no_subs){
+
+    pts <- min_pts_to_use[i]
+
+    poll_data <- windowed_data[[i]] %>%
+      dplyr::select(BC,CO2,NOx,UFP) %>%
+      mutate_all(scale)
+
+    increments <- c(floor(pts/5),floor(pts/4),floor(pts/3),floor(pts/2),pts)
+
+    knees_mat[,i] <- sapply(increments,function(x) find_the_knee(poll_data,x))
+  }
+
+  print(Sys.time()-start_time)
+}
 # 
 # {
 #   knees_tibble <- as_tibble(knees_mat) %>%
