@@ -8,7 +8,6 @@ find_the_knee <- function(poll_data,min_pts){
   
   tt <- kNNdist(poll_data,k=min_pts)
   
-  t2_start <- Sys.time()
   dist_subset <- tt[1:30]
   for(i in 31:length(tt)){
     if(tt[i] > (mean(dist_subset) + 3*sd(dist_subset))){
@@ -19,6 +18,41 @@ find_the_knee <- function(poll_data,min_pts){
     }
   }
   return(tt[length(tt)])
+}
+
+plot_knees <- function(poll_data,min_pts,title){
+  
+  png(paste0(getwd(),"/Miscellaneous_Figures/knee_analysis/",title,".png"))
+  
+  NN_plot <- kNNdist(poll_data,k=min_pts,main = title)
+  
+  change_in_NN <- diff(NN_plot)
+  
+  dist_subset <- NN_plot[1:30]
+  for(i in 31:length(NN_plot)){
+    if(NN_plot[i] > (mean(dist_subset) + 3*sd(dist_subset))){
+      first_knee <- NN_plot[i]
+      break
+    } else{
+      dist_subset <- c(dist_subset,NN_plot[i])
+    }
+  }
+  
+  slope_subset <- change_in_NN[1:30]
+  for(j in 31:length(change_in_NN)){
+    if(change_in_NN[j] > (mean(slope_subset)+3*sd(slope_subset))){
+      second_knee <- NN_plot[j]
+      break
+    } else{
+      slope_subset <- c(slope_subset,change_in_NN[j])
+    }
+  }
+  
+  abline(h=first_knee,lty = 2,col = "blue")
+  
+  abline(h=second_knee,lty = 2, col = "red")
+  
+  dev.off()
 }
 
 core_cluster_compactness <- function(dbscan_mod,poll_data){
@@ -107,7 +141,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   
   dbOutput <- vector(mode = "list",length = length(aggregate_list))
   
-  for(j in 1:length(aggregate_list)){
+  for(j in 31:length(aggregate_list)){
     print(j)
     dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
   }
@@ -123,25 +157,34 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 }
 
-# {
-#   list_to_tibble <- function(data_subset_list){
-#   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
-#   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
-#   # return(output_tibble)
-#   
-#   output_tibble <- data_subset_list[[1]]
-#   for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
-#   return(output_tibble)
-#   }
-#   
-#   db_tibble <- list_to_tibble(dbOutput)
-#   
-#   anomalous_emissions <- db_tibble %>%
-#     filter(Anomaly==2) %>%
-#     select(LST,BC,CO2,NOx,UFP)
-#   
-#   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))  
-# }
+{
+  list_to_tibble <- function(data_subset_list){
+  # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+  # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+  # return(output_tibble)
+  
+    current_grp_index <- 1
+ 
+    output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
+  
+    for(i in 2:length(data_subset_list)) {
+        current_grp_index <- i
+      
+        current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
+      
+        output_tibble <- rbind(output_tibble,current_tibble)
+      }
+    return(output_tibble)
+  }
+
+  db_tibble <- list_to_tibble(dbOutput)
+
+  # anomalous_emissions <- db_tibble %>%
+  #   filter(Anomaly==2) %>%
+  #   select(LST,BC,CO2,NOx,UFP)
+
+  # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))
+}
 
 ## Finding the knee sensitivity analysis.
 # {
@@ -193,3 +236,13 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 #  
 #  mean(percentage_diffs)
 # }
+
+
+## Knee analysis
+{
+  trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
+  
+  for(i in 1:length(trimmed_data)){
+    plot_knees(trimmed_data[[i]],min_pts_to_use[i],paste0("Day ",i))
+  }
+}

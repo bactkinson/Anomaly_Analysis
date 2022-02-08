@@ -112,24 +112,38 @@ drewnick_flag <- function(windowed_data){
 # ## Save results
 {
   list_to_tibble <- function(data_subset_list){
-
-    output_tibble <- data_subset_list[[1]]
-    for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
+  # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+  # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+  # return(output_tibble)
+  
+    current_grp_index <- 1
+ 
+    output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
+  
+    for(i in 2:length(data_subset_list)) {
+        current_grp_index <- i
+      
+        current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
+      
+        output_tibble <- rbind(output_tibble,current_tibble)
+      }
     return(output_tibble)
   }
 
   drewnick_tibble <- list_to_tibble(drewnick_flags)
 
-  anomalous_emissions <- drewnick_tibble %>%
-    filter(Anomaly==2) %>%
-    select(LST,BC,CO2,NOx,UFP)
-
-  write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_Drewnick.csv"))
+  write.csv(drewnick_tibble,paste0(getwd(),"/Anomalous_Emissions_Results/Labeled_Emissions_Drewnick.csv"))
+  
+  # anomalous_emissions <- drewnick_tibble %>%
+  #   filter(Anomaly==2) %>%
+  #   select(LST,BC,CO2,NOx,UFP)
+  # 
+  # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_Drewnick.csv"))
 }
 
-{
-  for(k in 1:20){
-    plot(UFP~LST,data = drewnick_flags[[k]],col = Anomaly)
-    Sys.sleep(5)
-  }
-}
+# {
+#   for(k in 1:20){
+#     plot(UFP~LST,data = drewnick_flags[[k]],col = Anomaly)
+#     Sys.sleep(5)
+#   }
+# }
