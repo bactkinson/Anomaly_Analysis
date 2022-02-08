@@ -49,7 +49,7 @@ plot_knees <- function(poll_data,min_pts,title){
     }
   }
   
-  plot(NNs~1,main = title)
+  plot(NNs~1,main = title,type = "l")
   
   abline(h=first_knee,lty = 2,col = "blue")
   
@@ -253,12 +253,20 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   
   trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
   
-  # for(i in 1:length(trimmed_data)){
-  #   plot_knees(trimmed_data[[i]],floor(min_pts_to_use[i]/2),paste0("Day ",i))
-  # }
-  # print(find_the_knee(trimmed_data[[1]],floor(min_pts_to_use[1]/2)))
-  # 
-  # print("")
-  # 
-  # print(find_the_sorted_knee(trimmed_data[[1]],floor(min_pts_to_use[1]/2)))
+  set.seed(10)
+  
+  indexes <- seq(1,length(trimmed_data),1)
+  
+  random_indexes <- sample(indexes,50)
+  
+  for(i in 1:random_indexes){
+    cur_idx <- random_indexes[i]
+    
+    plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
+    
+    print(paste("Iteration",i,"Completed"))
+    
+    print("------------")
+  }
+  
 }
