@@ -91,30 +91,30 @@ fraction_flagged <- function(percentile,poll,data){
  ## Read in the anomalous data. Preprocessing
   current_dir <- getwd()
   
-  db_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_EpsOver2.csv"),
+  db_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V01_run_1.csv"),
                              row.names = 1)
   
   drew_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Drewnick.csv"),
                              row.names = 1)
-  
+
   qor_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv"),
                              row.names = 1)
-  
+
   qand_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_AND.csv"),
                              row.names = 1)
-  
+
   drew_grouped_anomalies <- drew_data %>%
     group_split(Uniq_Fac,.keep = FALSE)
-  
+
   db_grouped_anomalies <- db_data %>%
     group_split(Uniq_Fac,.keep = FALSE)
-  
+
   qor_grouped_anomalies <- qor_data %>%
     group_split(Uniq_Fac,.keep = FALSE)
-  
+
   qand_grouped_anomalies <- qand_data %>%
     group_split(Uniq_Fac,.keep = FALSE)
-  
+
   # anomalous_emissions <- anomalous_data %>%
   #   filter(Anomaly==2) %>%
   #   dplyr::select(BC,CO2,NOx,UFP) %>%
@@ -173,103 +173,100 @@ fraction_flagged <- function(percentile,poll,data){
 #   # FactoMineR::PCA(anomalous_emissions,scale.unit = TRUE,ncp = 4)
 # }
 
+
+## Plotting DBSCAN results for each day.
 # {
-#   plot_time_series_anomalies(drew_grouped_anomalies[[8]], polls_to_pull = c("BC","CO2","NOx","UFP"),
-#                              title = "Drewnick",
-#                              save_graph = T,
-#                              directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Over_Drewnick/"))
-# 
-#   # UFP <- windowed_anomalies[[1]]$UFP
-#   #
-#   # TS <- as.POSIXct(windowed_anomalies[[1]]$LST,format=c("%Y-%m-%d %H:%M:%S"), tz = Sys.timezone())
-#   #
-#   # AS <- windowed_anomalies[[1]]$Anomaly
-#   #
-#   # plot(UFP~TS,col=AS)
+#   
+#   for(k in 1:length(db_grouped_anomalies)){
+#     plot_time_series_anomalies(db_grouped_anomalies[[k]], polls_to_pull = c("BC","CO2","NOx","UFP"),
+#                                title = paste0("DBSCAN_Day_",k),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Results/"))
+#   }
 # }
 
 ## With drewnick data, db data, compare how many points in percentiles each method 
 ## flags as anomalies OVERALL
-# {
-#   qt_increments <- c(0.1,0.25,0.5,0.75,0.9,0.95,0.99)
-#   
-#   drew_NOx <- sapply(qt_increments, function(x) round(fraction_flagged(x,"NOx",drew_data),1))
-#   drew_CO2 <- sapply(qt_increments, function(x) round(fraction_flagged(x,"CO2",drew_data),1))
-#   drew_UFP <- sapply(qt_increments, function(x) round(fraction_flagged(x,"UFP",drew_data),1))
-#   drew_BC <- sapply(qt_increments, function(x) round(fraction_flagged(x,"BC",drew_data),1))
-#   db_NOx <- sapply(qt_increments, function(x) round(fraction_flagged(x,"NOx",db_data),1))
-#   db_CO2 <- sapply(qt_increments, function(x) round(fraction_flagged(x,"CO2",db_data),1))
-#   db_UFP <- sapply(qt_increments, function(x) round(fraction_flagged(x,"UFP",db_data),1))
-#   db_BC <- sapply(qt_increments, function(x) round(fraction_flagged(x,"BC",db_data),1))
-#   
-#   quantile_tibble <- tibble("Drewnick_NOx"=drew_NOx,
-#                             "DBSCAN_NOx"=db_NOx,
-#                             "Drewnick_CO2"=drew_CO2,
-#                             "DBSCAN_CO2"=db_CO2,
-#                             "Drewnick_UFP"=drew_UFP,
-#                             "DBSCAN_UFP"=db_UFP,
-#                             "Drewnick_BC"=drew_BC,
-#                             "DBSCAN_BC"=db_BC) 
-#   
-#   rownames(quantile_tibble) <- c("0.1","0.25","0.5","0.75","0.9","0.95","0.99")
-#   
-#   require(kableExtra)
-#   
-#   quantile_tibble %>%
-#     kbl() %>%
-#     kable_classic(html_font = "Cambria")
-#   
-# }
+{
+  qt_increments <- c(0.1,0.25,0.5,0.75,0.9,0.95,0.99)
+
+  drew_NOx <- sapply(qt_increments, function(x) round(fraction_flagged(x,"NOx",drew_data),1))
+  drew_CO2 <- sapply(qt_increments, function(x) round(fraction_flagged(x,"CO2",drew_data),1))
+  drew_UFP <- sapply(qt_increments, function(x) round(fraction_flagged(x,"UFP",drew_data),1))
+  drew_BC <- sapply(qt_increments, function(x) round(fraction_flagged(x,"BC",drew_data),1))
+  db_NOx <- sapply(qt_increments, function(x) round(fraction_flagged(x,"NOx",db_data),1))
+  db_CO2 <- sapply(qt_increments, function(x) round(fraction_flagged(x,"CO2",db_data),1))
+  db_UFP <- sapply(qt_increments, function(x) round(fraction_flagged(x,"UFP",db_data),1))
+  db_BC <- sapply(qt_increments, function(x) round(fraction_flagged(x,"BC",db_data),1))
+
+  quantile_tibble <- tibble("Drewnick_NOx"=drew_NOx,
+                            "DBSCAN_NOx"=db_NOx,
+                            "Drewnick_CO2"=drew_CO2,
+                            "DBSCAN_CO2"=db_CO2,
+                            "Drewnick_UFP"=drew_UFP,
+                            "DBSCAN_UFP"=db_UFP,
+                            "Drewnick_BC"=drew_BC,
+                            "DBSCAN_BC"=db_BC)
+
+  rownames(quantile_tibble) <- c("0.1","0.25","0.5","0.75","0.9","0.95","0.99")
+
+  require(kableExtra)
+
+  quantile_tibble %>%
+    kbl() %>%
+    kable_classic(html_font = "Cambria")
+
+}
 
 ## Investigating joint behavior. Doing it on day-by-day basis.
-# {
-#   fraction_flagged_joint <- function(percentile,data){
-#     
-#     polls <- c("BC","CO2","NOx","UFP")
-#     
-#     selected_poll <- data %>%
-#       select(all_of(polls)) 
-# 
-#     test <- apply(selected_poll,2,function(x) x > quantile(x,percentile))
-#     
-#     joint_truth <- apply(test,1,function(x) all(x))
-#     
-#     joint_greater <- data %>%
-#       filter(joint_truth)
-#     
-#     if(length(which(joint_greater$Anomaly==2))==0){
-#       return(0)
-#     } else{
-#     
-#       fraction <- length(which(joint_greater$Anomaly==2))/length(joint_greater$Anomaly)
-#       
-#       return(round(fraction*100,1))
-#       
-#     }
-#     
-#   }
-#   
-#   drew_joint_percentages <- lapply(drew_grouped_anomalies,function(x) fraction_flagged_joint(0.90,x)) %>%
-#     unlist(use.names = FALSE)
-#   
-#   db_joint_percentages <- lapply(db_grouped_anomalies,function(x) fraction_flagged_joint(0.90,x)) %>%
-#     unlist(use.names = FALSE)
-#   
-#   # comparison_tibble <- tibble("Drewnick_Percentages"=drew_joint_percentages,
-#   #                             "DB_Percentages"=db_joint_percentages)
-#   
-#   db_greater_drew <- which(db_joint_percentages>drew_joint_percentages)
-#   
-#   drew_greater_db <- which(drew_joint_percentages>db_joint_percentages)
-#   
-#   # comparison_tibble[db_greater_drew,] %>%
-#   #   kbl() %>%
-#   #   kable_classic()
-#   # 
-#   # comparison_tibble[drew_greater_db,] %>%
-#   #   kbl() %>%
-#   #   kable_classic()
-#   
+{
+  fraction_flagged_joint <- function(percentile,data){
+
+    polls <- c("BC","CO2","NOx","UFP")
+
+    selected_poll <- data %>%
+      select(all_of(polls))
+
+    test <- apply(selected_poll,2,function(x) x > quantile(x,percentile))
+
+    joint_truth <- apply(test,1,function(x) all(x))
+
+    joint_greater <- data %>%
+      filter(joint_truth)
+
+    if(length(which(joint_greater$Anomaly==2))==0){
+      return(0)
+    } else{
+
+      fraction <- length(which(joint_greater$Anomaly==2))/length(joint_greater$Anomaly)
+
+      return(round(fraction*100,1))
+
+    }
+
+  }
+
+  drew_joint_percentages <- lapply(drew_grouped_anomalies,function(x) fraction_flagged_joint(0.90,x)) %>%
+    unlist(use.names = FALSE)
+
+  db_joint_percentages <- lapply(db_grouped_anomalies,function(x) fraction_flagged_joint(0.90,x)) %>%
+    unlist(use.names = FALSE)
+
+  # comparison_tibble <- tibble("Drewnick_Percentages"=drew_joint_percentages,
+  #                             "DB_Percentages"=db_joint_percentages)
+
+  db_greater_drew <- which(db_joint_percentages>drew_joint_percentages)
+
+  drew_greater_db <- which(drew_joint_percentages>db_joint_percentages)
+
+  # comparison_tibble[db_greater_drew,] %>%
+  #   kbl() %>%
+  #   kable_classic()
+  #
+  # comparison_tibble[drew_greater_db,] %>%
+  #   kbl() %>%
+  #   kable_classic()
+
 #   for(i in 1:length(db_greater_drew)){
 #     day_index <- db_greater_drew[i]
 #     
@@ -285,46 +282,46 @@ fraction_flagged <- function(percentile,poll,data){
 #                                save_graph = T,
 #                                directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Over_Drewnick/"))
 #   }
-# }
+}
 
 ## Generate 20 random time series comparing flagged anomalies for Drewnick, DB
 ## quantile_or, and quantile_and methods
-{
-  set.seed(3)
-  
-  grouped_indices <- seq(1,277,1)
-  
-  random_indices <- sample(grouped_indices,20)
-  
-  for(j in 1:length(random_indices)){
-    print(j)
-    print("-------")
-    
-    current_index <- random_indices[j]
-    
-    plot_time_series_anomalies(db_grouped_anomalies[[current_index]],
-                               c("BC","CO2","NOx","UFP"),
-                               paste0("DBSCAN_Day_",current_index),
-                               save_graph = T,
-                               directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
-
-    plot_time_series_anomalies(drew_grouped_anomalies[[current_index]],
-                               c("BC","CO2","NOx","UFP"),
-                               paste0("Drewnick_Day_",current_index),
-                               save_graph = T,
-                               directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
-    
-    plot_time_series_anomalies(qor_grouped_anomalies[[current_index]],
-                               c("BC","CO2","NOx","UFP"),
-                               paste0("QOR_Day_",current_index),
-                               save_graph = T,
-                               directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
-    
-    plot_time_series_anomalies(qand_grouped_anomalies[[current_index]],
-                               c("BC","CO2","NOx","UFP"),
-                               paste0("QAND_Day_",current_index),
-                               save_graph = T,
-                               directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
-    
-  }
-}
+# {
+#   set.seed(3)
+#   
+#   grouped_indices <- seq(1,277,1)
+#   
+#   random_indices <- sample(grouped_indices,20)
+#   
+#   for(j in 1:length(random_indices)){
+#     print(j)
+#     print("-------")
+#     
+#     current_index <- random_indices[j]
+#     
+#     plot_time_series_anomalies(db_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("DBSCAN_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+# 
+#     plot_time_series_anomalies(drew_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("Drewnick_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+#     
+#     plot_time_series_anomalies(qor_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("QOR_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+#     
+#     plot_time_series_anomalies(qand_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("QAND_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+#     
+#   }
+# }

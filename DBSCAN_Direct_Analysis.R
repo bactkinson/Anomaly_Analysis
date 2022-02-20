@@ -23,7 +23,7 @@ find_the_knee <- function(poll_data,min_pts){
 
 plot_knees <- function(poll_data,min_pts,title){
   
-  png(paste0(getwd(),"/Miscellaneous_Figures/knee_analysis/",title,".png"))
+  png(paste0(getwd(),"/Miscellaneous_Figures/All_Knee_Plots/",title,".png"))
   
   NNs <- sort(kNNdist(poll_data,k=min_pts))
   
@@ -126,11 +126,9 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   current_dir <- getwd()
 
-  source(paste0(current_dir,"/send_myself_mail.R"))
-
   load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
 
-  windowed_data <- lapply(windowed_data,function(x)x %>%  dplyr::select(-c(Delta_D)))
+  windowed_data <- lapply(windowed_data,function(x) x %>%  dplyr::select(-c(Delta_D)))
 
   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
 
@@ -166,24 +164,24 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 # }
 
 # {
-#   list_to_tibble <- function(data_subset_list){
-#   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
-#   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
-#   # return(output_tibble)
-#   
-#     current_grp_index <- 1
-#  
-#     output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
-#   
-#     for(i in 2:length(data_subset_list)) {
-#         current_grp_index <- i
-#       
-#         current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
-#       
-#         output_tibble <- rbind(output_tibble,current_tibble)
-#       }
-#     return(output_tibble)
-#   }
+  list_to_tibble <- function(data_subset_list){
+  # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+  # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+  # return(output_tibble)
+
+    current_grp_index <- 1
+
+    output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
+
+    for(i in 2:length(data_subset_list)) {
+        current_grp_index <- i
+
+        current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
+
+        output_tibble <- rbind(output_tibble,current_tibble)
+      }
+    return(output_tibble)
+  }
 # 
 #   db_tibble <- list_to_tibble(dbOutput)
 # 
@@ -250,23 +248,36 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 ## Knee analysis
 {
   memory.limit(size = 384000)
-  
+
   trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
-  
+
   set.seed(10)
+
+  # indexes <- seq(1,length(trimmed_data),1)
+  # 
+  # random_indexes <- sample(indexes,50)
+  # 
+  # for(i in 1:length(random_indexes)){
+  #   cur_idx <- random_indexes[i]
+  # 
+  #   plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
+  # 
+  #   print(paste("Iteration",i,"Completed"))
+  # 
+  #   print("------------")
+  # }
   
-  indexes <- seq(1,length(trimmed_data),1)
+  # troubleshoot_indices <- c(8,18,23,25,26,33,40,44,48,62,68,71,81,84,90,93,96,105,109,116,127,131,146,157,158,187,191,194,209,228,238,243,269)
   
-  random_indexes <- sample(indexes,50)
-  
-  for(i in 1:random_indexes){
-    cur_idx <- random_indexes[i]
-    
+  for(i in 1:length(trimmed_data)){
+    cur_idx <- i
+
     plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
-    
+
     print(paste("Iteration",i,"Completed"))
-    
+
     print("------------")
   }
-  
 }
+
+# plot_knees(trimmed_data[[48]],floor(min_pts_to_use[48]/2),"Day 48")
