@@ -14,5 +14,9 @@ anomalous_emissions_boot/
 txdot_roadways/
 SIBaR_Errors/
 Miscellaneous_Figures/
+code_execution.R
+Manually_Flagged_Anomalies/
 Algorithm_Validation_Data/
 Algorithm_Validation_Data.zip
+valid_data.RData
+
