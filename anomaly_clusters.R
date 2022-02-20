@@ -196,7 +196,7 @@ fraction_flagged <- function(percentile,poll,data){
 {
   valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
   
-  load(paste0(current_dir,"/valid_data.RData")) %>% as.list()
+  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
   
   db_flags <- vector(,)
   
