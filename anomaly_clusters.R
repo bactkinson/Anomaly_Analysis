@@ -196,9 +196,13 @@ fraction_flagged <- function(percentile,poll,data){
 {
   valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
   
+  load(paste0(current_dir,"/valid_data.RData")) %>% as.list()
+  
   db_flags <- vector(,)
   
   valid_flags <- vector(,)
+  
+  valid_data_windows <- vector(mode = "list", length = length(valid_label_files))
   
   for(j in seq_along(valid_label_files)){
     day_tag <- as.numeric(
@@ -209,12 +213,20 @@ fraction_flagged <- function(percentile,poll,data){
     
     current_flags <- unlist(read.csv(paste0(getwd(),"/Manually_Flagged_Anomalies/",valid_label_files[j])),use.names = FALSE)
     
+    print(head(current_flags))
+    
     db_flags <- c(db_flags,db_grouped_anomalies[[day_tag]]$Anomaly)
     
     valid_flags <- c(valid_flags,current_flags)
+    
+    valid_data_windows[[j]] <- windowed_data[[day_tag]]
+    
+    valid_data_windows[[j]]$Anomaly <- current_flags
   }
   
   print(length(which(db_flags==valid_flags))/length(valid_flags))
+  
+  save(valid_data_windows,file=paste0(getwd(),"/valid_data.RData"))
 }
 
 ## With drewnick data, db data, compare how many points in percentiles each method 
