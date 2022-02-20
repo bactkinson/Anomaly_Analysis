@@ -15,13 +15,24 @@ list_to_tibble <- function(data_subset_list){
   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
   # return(output_tibble)
+
+  current_grp_index <- 1
   
-  output_tibble <- data_subset_list[[1]]
-  for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
+  output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
+  
+  for(i in 2:length(data_subset_list)) {
+    current_grp_index <- i
+    
+    current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
+    
+    output_tibble <- rbind(output_tibble,current_tibble)
+  }
   return(output_tibble)
 }
 
 {
+  current_dir <- getwd()
+  
   data_dir <- paste0(current_dir,"/Raw_Data_Alt")
   
   all_files <- list.files(data_dir)
@@ -94,6 +105,24 @@ list_to_tibble <- function(data_subset_list){
 #   
 #   write.csv(poll_data,paste0(getwd(),"Poll_Day_1.csv"))
 # }
+
+## Preparing data to send to GriffinLab computer
+
+{
+  set.seed(7)
+
+  indexes <- seq(1,length(windowed_data),1)
+
+  rand_indexes <- sample(indexes,30)
+
+  for(k in 1:length(rand_indexes)){
+    current_index <- rand_indexes[k]
+
+    current_data <- cbind(windowed_data[[current_index]],"Anomaly"=rep(1,nrow(windowed_data[[current_index]])))
+
+    write.csv(current_data,paste0(getwd(),"/Algorithm_Validation_Data/Day_",current_index,".csv"))
+  }
+}
 
 
 # {

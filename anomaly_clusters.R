@@ -94,31 +94,31 @@ fraction_flagged <- function(percentile,poll,data){
   db_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V01_run_1.csv"),
                              row.names = 1)
   
-  # drew_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Drewnick.csv"),
-  #                            row.names = 1)
-  # 
-  # qor_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv"),
-  #                            row.names = 1)
-  # 
-  # qand_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_AND.csv"),
-  #                            row.names = 1)
-  # 
-  # drew_grouped_anomalies <- drew_data %>%
-  #   group_split(Uniq_Fac,.keep = FALSE)
+  drew_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Drewnick.csv"),
+                             row.names = 1)
+
+  qor_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv"),
+                             row.names = 1)
+
+  qand_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_AND.csv"),
+                             row.names = 1)
+
+  drew_grouped_anomalies <- drew_data %>%
+    group_split(Uniq_Fac,.keep = FALSE)
 
   db_grouped_anomalies <- db_data %>%
     group_split(Uniq_Fac,.keep = FALSE)
 
-  # qor_grouped_anomalies <- qor_data %>%
-  #   group_split(Uniq_Fac,.keep = FALSE)
-  # 
-  # qand_grouped_anomalies <- qand_data %>%
-  #   group_split(Uniq_Fac,.keep = FALSE)
-  
-  anomalous_emissions <- db_data %>%
-    filter(Anomaly==2) %>%
-    dplyr::select(BC,CO2,NOx,UFP) %>%
-    mutate_all(scale)
+  qor_grouped_anomalies <- qor_data %>%
+    group_split(Uniq_Fac,.keep = FALSE)
+
+  qand_grouped_anomalies <- qand_data %>%
+    group_split(Uniq_Fac,.keep = FALSE)
+
+  # anomalous_emissions <- anomalous_data %>%
+  #   filter(Anomaly==2) %>%
+  #   dplyr::select(BC,CO2,NOx,UFP) %>%
+  #   mutate_all(scale)
 }
 
 # Cluster validation
@@ -177,19 +177,16 @@ fraction_flagged <- function(percentile,poll,data){
                   geom = c("point","point"))
 }
 
+
+## Plotting DBSCAN results for each day.
 # {
-#   plot_time_series_anomalies(drew_grouped_anomalies[[8]], polls_to_pull = c("BC","CO2","NOx","UFP"),
-#                              title = "Drewnick",
-#                              save_graph = T,
-#                              directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Over_Drewnick/"))
-# 
-#   # UFP <- windowed_anomalies[[1]]$UFP
-#   #
-#   # TS <- as.POSIXct(windowed_anomalies[[1]]$LST,format=c("%Y-%m-%d %H:%M:%S"), tz = Sys.timezone())
-#   #
-#   # AS <- windowed_anomalies[[1]]$Anomaly
-#   #
-#   # plot(UFP~TS,col=AS)
+#   
+#   for(k in 1:length(db_grouped_anomalies)){
+#     plot_time_series_anomalies(db_grouped_anomalies[[k]], polls_to_pull = c("BC","CO2","NOx","UFP"),
+#                                title = paste0("DBSCAN_Day_",k),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Results/"))
+#   }
 # }
 
 ## Label validation
