@@ -148,34 +148,34 @@ fraction_flagged <- function(percentile,poll,data){
 
 ## From cluster evaluation results above, determine best number of kmeans cluster centers
 ## and visualize results.
-{
-  set.seed(5)
-
-  anom_kmeans <- kmeans(anomalous_emissions,centers = 3, nstart = 100)
-
-  clustered_data <- cbind(anomalous_emissions, "Cluster" = as.factor(anom_kmeans$cluster))
-
-  clustered_data_long <- clustered_data %>%
-    pivot_longer(c(BC,CO2,NOx,UFP), names_to = "Pollutant", values_to = "Measurement")
-
-  print(
-    ggplot(data=clustered_data_long) +
-    geom_boxplot(aes(x=Cluster,y=Measurement)) +
-    facet_wrap(~Pollutant, scale="free")
-  )
-
-  require(factoextra)
-
-  fviz_cluster(anom_kmeans,data=anomalous_emissions,
-               geom = "point",
-               main = "3 Cluster Solution")
-
-  res_pca <- FactoMineR::PCA(anomalous_emissions,scale.unit = TRUE,ncp = 4) 
-  
-  fviz_pca_biplot(res_pca,
-                  axes = c(3,4),
-                  geom = c("point","point"))
-}
+# {
+#   set.seed(5)
+# 
+#   anom_kmeans <- kmeans(anomalous_emissions,centers = 3, nstart = 100)
+# 
+#   clustered_data <- cbind(anomalous_emissions, "Cluster" = as.factor(anom_kmeans$cluster))
+# 
+#   clustered_data_long <- clustered_data %>%
+#     pivot_longer(c(BC,CO2,NOx,UFP), names_to = "Pollutant", values_to = "Measurement")
+# 
+#   print(
+#     ggplot(data=clustered_data_long) +
+#     geom_boxplot(aes(x=Cluster,y=Measurement)) +
+#     facet_wrap(~Pollutant, scale="free")
+#   )
+# 
+#   require(factoextra)
+# 
+#   fviz_cluster(anom_kmeans,data=anomalous_emissions,
+#                geom = "point",
+#                main = "3 Cluster Solution")
+# 
+#   res_pca <- FactoMineR::PCA(anomalous_emissions,scale.unit = TRUE,ncp = 4) 
+#   
+#   fviz_pca_biplot(res_pca,
+#                   axes = c(3,4),
+#                   geom = c("point","point"))
+# }
 
 
 ## Plotting DBSCAN results for each day.
@@ -189,41 +189,197 @@ fraction_flagged <- function(percentile,poll,data){
 #   }
 # }
 
-## Label validation
+## Label validation. Assessing across entire dataset.
 {
-  valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
+  require(caret)
   
-  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
+  valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
   
   db_flags <- vector(,)
   
+  drew_flags <- vector(,)
+  
+  qor_flags <- vector(,)
+  
+  qand_flags <- vector(,)
+  
   valid_flags <- vector(,)
   
-  valid_data_windows <- vector(mode = "list", length = length(valid_label_files))
+  load(paste0(getwd(),"/valid_data.RData")) %>% as.list()
   
-  for(j in seq_along(valid_label_files)){
+  for(j in seq_along(valid_data_windows)){
     day_tag <- as.numeric(
       strsplit(
         strsplit(valid_label_files[j],"_")[[1]][3],
     "[.]")[[1]][1]
     )
+    if(day_tag==218){
+      next
+    }
     
-    current_flags <- unlist(read.csv(paste0(getwd(),"/Manually_Flagged_Anomalies/",valid_label_files[j])),use.names = FALSE)
-    
-    print(head(current_flags))
+    print(day_tag)
     
     db_flags <- c(db_flags,db_grouped_anomalies[[day_tag]]$Anomaly)
     
-    valid_flags <- c(valid_flags,current_flags)
+    drew_flags <- c(drew_flags, drew_grouped_anomalies[[day_tag]]$Anomaly)
     
-    valid_data_windows[[j]] <- windowed_data[[day_tag]]
+    qor_flags <- c(qor_flags, qor_grouped_anomalies[[day_tag]]$Anomaly)
     
-    valid_data_windows[[j]]$Anomaly <- current_flags
+    qand_flags <- c(qand_flags, qand_grouped_anomalies[[day_tag]]$Anomaly)
+    
+    valid_flags <- c(valid_flags,valid_data_windows[[j]]$Anomaly)
+  }
+  print("Percentage Agreeement between DBSCAN, validation set")  
+  print(length(which(db_flags==valid_flags))/length(valid_flags))
+  print("---------")
+  
+  print("Percentage Agreeement between Drewnick, validation set")  
+  print(length(which(drew_flags==valid_flags))/length(valid_flags))
+  print("---------")
+  
+  print("Percentage Agreeement between QOR, validation set")  
+  print(length(which(qor_flags==valid_flags))/length(valid_flags))
+  print("---------")
+  
+  print("Percentage Agreeement between QAND, validation set")  
+  print(length(which(qand_flags==valid_flags))/length(valid_flags))
+  print("---------")
+  
+  baseline_flags <- rep(1,length(valid_flags))
+  
+  print("Percentage Agreeement between baseline, validation set")  
+  print(length(which(baseline_flags==valid_flags))/length(valid_flags))
+  print("---------")
+  
+  db_cm <- caret::confusionMatrix(as.factor(db_flags), as.factor(valid_flags))
+  
+  drew_cm <- caret::confusionMatrix(as.factor(drew_flags), as.factor(valid_flags))
+  
+  qor_cm <- caret::confusionMatrix(as.factor(qor_flags), as.factor(valid_flags))
+  
+  qand_cm <- caret::confusionMatrix(as.factor(qand_flags), as.factor(valid_flags))
+  
+  # as.table(db_cm) %>%
+  #   kbl() %>%
+  #   kable_styling()
+  # 
+  # as.table(qor_cm) %>%
+  #   kbl() %>%
+  #   kable_classic()
+  
+  # db_table <- as.data.frame(db_cm$table) %>%
+  #   mutate(Agreement = ifelse(Prediction==Reference, "Agree", "Disagree")) %>%
+  #   group_by(Reference)
+  # 
+  # ggplot(data = db_table, aes(Prediction, Reference, fill = Agreement)) +
+  #   geom_tile(aes(alpha = 0.1)) + 
+  #   geom_text(aes(label=Freq),fontface = "bold", size = 5, alpha = 1) +
+  #   scale_fill_manual(values = c(Agree = "blue", Disagree = "red")) +
+  #   ylim(rev(levels(db_table$Reference)))+
+  #   labs(title = "DBSCAN Confusion Matrix")+
+  #   theme(legend.position = "none")
+  
+  plot_confusion_matrix <- function(data_flags, reference_flags,plot_title){
+    res_cm <- caret::confusionMatrix(as.factor(data_flags), as.factor(reference_flags))
+    
+    res_table <- as.data.frame(res_cm$table) %>%
+      mutate(Agreement = ifelse(Prediction==Reference, "Agree", "Disagree")) %>%
+      group_by(Reference)
+    
+    print(
+      ggplot(data = res_table, aes(Prediction, Reference, fill = Agreement)) +
+        geom_tile(aes(alpha = 0.1)) + 
+        geom_text(aes(label=Freq),fontface = "bold", size = 5, alpha = 1) +
+        scale_fill_manual(values = c(Agree = "blue", Disagree = "red")) +
+        ylim(rev(levels(res_table$Reference)))+
+        labs(title = plot_title)+
+        theme(legend.position = "none")
+    )
+
   }
   
-  print(length(which(db_flags==valid_flags))/length(valid_flags))
+  plot_confusion_matrix(db_flags, valid_flags, "DBSCAN Confusion Matrix")
   
-  save(valid_data_windows,file=paste0(getwd(),"/valid_data.RData"))
+  plot_confusion_matrix(qor_flags, valid_flags, "QOR Confusion Matrix")
+  
+  plot_confusion_matrix(qand_flags, valid_flags, "QAND Confusion Matrix")
+  
+  plot_confusion_matrix(drew_flags, valid_flags, "Drewnick Confusion Matrix")
+    
+}
+
+## Assessing agreement between different approaches by comparing 
+## results on daily basis
+
+{
+  eval_agreement <- function(valid_window,data_window){
+    valid_flags <- valid_window$Anomaly
+    
+    data_flags <- data_window$Anomaly
+    
+    perc_agreement <- length(which(valid_flags==data_flags))/length(data_flags)*100
+    
+    return(round(perc_agreement,2))
+  }
+  
+  ## Want: Tibble with overall agreement expressed as percentage for 
+  ## each technique. Column 1 contains Day Tag, Column 2 contains DBSCAN
+  ## Column 3 contains Drewnick, etc.
+  valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
+  
+  load(paste0(getwd(),"/valid_data.RData")) %>% as.list()
+  
+  db_perc_agreement <- vector(mode = "numeric", length = length(valid_data_windows))
+  
+  drew_perc_agreement <- vector(mode = "numeric", length = length(valid_data_windows))
+  
+  qor_perc_agreement <- vector(mode = "numeric", length = length(valid_data_windows))
+  
+  qand_perc_agreement <- vector(mode = "numeric", length = length(valid_data_windows))
+  
+  days_tags <- vector(mode = "numeric", length = length(valid_data_windows))
+  
+  for(k in seq_along(valid_data_windows)){
+    day_tag <- as.numeric(
+      strsplit(
+        strsplit(valid_label_files[k],"_")[[1]][3],
+    "[.]")[[1]][1]
+    )
+    
+    days_tags[k] <- day_tag
+    
+    db_perc_agreement[k] <- eval_agreement(valid_data_windows[[k]],db_grouped_anomalies[[day_tag]])
+    
+    drew_perc_agreement[k] <- eval_agreement(valid_data_windows[[k]],drew_grouped_anomalies[[day_tag]])
+    
+    qor_perc_agreement[k] <- eval_agreement(valid_data_windows[[k]],qor_grouped_anomalies[[day_tag]])
+    
+    qand_perc_agreement[k] <- eval_agreement(valid_data_windows[[k]],qand_grouped_anomalies[[day_tag]])
+  }
+  
+  validation_results_by_day <- tibble("Day"=days_tags,
+                                      "DBSCAN"=db_perc_agreement,
+                                      "Drewnick"=drew_perc_agreement,
+                                      "QOR"=qor_perc_agreement,
+                                      "QAND"=qand_perc_agreement)
+  
+  maxes <- apply(validation_results_by_day,1,function(x) which.max(x[2:5]))
+  
+  length(which(maxes==1))
+  length(which(maxes==2))
+  length(which(maxes==3))
+  
+  ## Creating table of validation_results_by_day
+  
+  require(kableExtra)
+  
+  validation_results_by_day %>%
+    kbl() %>%
+    kable_classic()
+}
+
+{
+  plot_time_series_anomalies(db_grouped_anomalies[[209]],c("BC","CO2","NOx","UFP"),"DBSCAN_Day_209")
 }
 
 ## With drewnick data, db data, compare how many points in percentiles each method 

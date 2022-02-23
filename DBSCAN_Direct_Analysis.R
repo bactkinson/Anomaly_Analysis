@@ -6,9 +6,9 @@ require(tidyverse)
 require(parallel)
 ## Required functions
 find_the_knee <- function(poll_data,min_pts){
-  
+
   tt <- sort(kNNdist(poll_data,k=min_pts))
-  
+
   dist_subset <- tt[1:30]
   for(i in 31:length(tt)){
     if(tt[i] > (mean(dist_subset) + 3*sd(dist_subset))){
@@ -21,9 +21,42 @@ find_the_knee <- function(poll_data,min_pts){
   return(tt[length(tt)])
 }
 
+find_the_knee_approx <- function(poll_data,min_pts){
+
+  tt <- sort(kNNdist(poll_data,k=min_pts,approx = 1))
+
+  dist_subset <- tt[1:30]
+  for(i in 31:length(tt)){
+    if(tt[i] > (mean(dist_subset) + 3*sd(dist_subset))){
+      return(tt[i])
+      break
+    } else{
+      dist_subset <- c(dist_subset,tt[i])
+    }
+  }
+  return(tt[length(tt)])
+}
+
+find_the_knee_quantile <- function(poll_data,min_pts){
+
+  tt <- sort(kNNdist(poll_data,k=min_pts))
+
+  dist_subset <- tt[1:30]
+  for(i in 31:length(tt)){
+    if(tt[i] > qnorm(0.95, mean = mean(dist_subset), sd = sd(dist_subset))){
+      return(tt[i])
+      break
+    } else{
+      dist_subset <- c(dist_subset,tt[i])
+    }
+  }
+  return(tt[length(tt)])
+}
+
+
 plot_knees <- function(poll_data,min_pts,title){
   
-  png(paste0(getwd(),"/Miscellaneous_Figures/All_Knee_Plots/",title,".png"))
+  png(paste0(getwd(),"/Miscellaneous_Figures/Knee_Plots_Quantile_Comparison/",title,".png"))
   
   NNs <- sort(kNNdist(poll_data,k=min_pts))
   
@@ -39,13 +72,23 @@ plot_knees <- function(poll_data,min_pts,title){
     }
   }
   
-  slope_subset <- change_in_NN[1:30]
-  for(j in 31:length(change_in_NN)){
-    if(change_in_NN[j] > (mean(slope_subset)+3*sd(slope_subset))){
+  # slope_subset <- change_in_NN[1:30]
+  # for(j in 31:length(change_in_NN)){
+  #   if(change_in_NN[j] > (mean(slope_subset)+3*sd(slope_subset))){
+  #     second_knee <- NNs[j]
+  #     break
+  #   } else{
+  #     slope_subset <- c(slope_subset,change_in_NN[j])
+  #   }
+  # }
+  
+  dist_subset <- NNs[1:30]
+  for(j in 31:length(NNs)){
+    if(NNs[j] > qnorm(0.95, mean=mean(dist_subset),sd = sd(dist_subset))){
       second_knee <- NNs[j]
       break
     } else{
-      slope_subset <- c(slope_subset,change_in_NN[j])
+      dist_subset <- c(dist_subset,NNs[j])
     }
   }
   
@@ -130,10 +173,25 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   windowed_data <- lapply(windowed_data,function(x) x %>%  dplyr::select(-c(Delta_D)))
 
-  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
+  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage_boot/min_pts_storage_V01_run_1.csv"))[,2]
 
 }
 
+## Experimenting with select days.
+{
+  min_pts <- min_pts_to_use[203]
+
+  poll_data <- windowed_data[[203]] %>%
+    select(BC,CO2,NOx,UFP) %>%
+    mutate_all(scale)
+
+  # full_knee <- find_the_knee(poll_data,min_pts)
+  #  
+  # half_knee <- find_the_knee(poll_data,floor(min_pts/2))
+  # 
+  # plot_knees(poll_data,min_pts,title = "Day_269_Full")
+
+}
 
 ## Running the main DBSCAN routine
 # {  
@@ -253,24 +311,12 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   set.seed(10)
 
-  # indexes <- seq(1,length(trimmed_data),1)
-  # 
-  # random_indexes <- sample(indexes,50)
-  # 
-  # for(i in 1:length(random_indexes)){
-  #   cur_idx <- random_indexes[i]
-  # 
-  #   plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
-  # 
-  #   print(paste("Iteration",i,"Completed"))
-  # 
-  #   print("------------")
-  # }
-  
-  # troubleshoot_indices <- c(8,18,23,25,26,33,40,44,48,62,68,71,81,84,90,93,96,105,109,116,127,131,146,157,158,187,191,194,209,228,238,243,269)
-  
-  for(i in 1:length(trimmed_data)){
-    cur_idx <- i
+  indexes <- seq(1,length(trimmed_data),1)
+
+  random_indexes <- sample(indexes,30)
+
+  for(i in 1:length(random_indexes)){
+    cur_idx <- random_indexes[i]
 
     plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
 
@@ -278,6 +324,17 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
     print("------------")
   }
+  
+  # troubleshoot_indices <- c(8,18,23,25,26,33,40,44,48,62,68,71,81,84,90,93,96,105,109,116,127,131,146,157,158,187,191,194,209,228,238,243,269)
+  
+  # for(i in 1:length(trimmed_data)){
+  #   cur_idx <- i
+  # 
+  #   plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day_",cur_idx))
+  # 
+  #   print(paste("Iteration",i,"Completed"))
+  # 
+  #   print("------------")
+  # }
 }
 
-# plot_knees(trimmed_data[[48]],floor(min_pts_to_use[48]/2),"Day 48")

@@ -108,20 +108,49 @@ list_to_tibble <- function(data_subset_list){
 
 ## Preparing data to send to GriffinLab computer
 
+# {
+#   set.seed(7)
+# 
+#   indexes <- seq(1,length(windowed_data),1)
+# 
+#   rand_indexes <- sample(indexes,30)
+# 
+#   for(k in 1:length(rand_indexes)){
+#     current_index <- rand_indexes[k]
+# 
+#     current_data <- cbind(windowed_data[[current_index]],"Anomaly"=rep(1,nrow(windowed_data[[current_index]])))
+# 
+#     write.csv(current_data,paste0(getwd(),"/Algorithm_Validation_Data/Day_",current_index,".csv"))
+#   }
+# }
+
+## Create validation set.
 {
-  set.seed(7)
-
-  indexes <- seq(1,length(windowed_data),1)
-
-  rand_indexes <- sample(indexes,30)
-
-  for(k in 1:length(rand_indexes)){
-    current_index <- rand_indexes[k]
-
-    current_data <- cbind(windowed_data[[current_index]],"Anomaly"=rep(1,nrow(windowed_data[[current_index]])))
-
-    write.csv(current_data,paste0(getwd(),"/Algorithm_Validation_Data/Day_",current_index,".csv"))
+  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
+  
+  valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
+  
+  valid_data_windows <- vector(mode = "list", length = length(valid_label_files))
+  
+  valid_flags <- vector(,)
+  
+  for(j in seq_along(valid_label_files)){
+    day_tag <- as.numeric(
+      strsplit(
+        strsplit(valid_label_files[j],"_")[[1]][3],
+    "[.]")[[1]][1]
+    )
+    
+    current_flags <- unlist(read.csv(paste0(getwd(),"/Manually_Flagged_Anomalies/",valid_label_files[j])),use.names = FALSE)
+    
+    valid_flags <- c(valid_flags,current_flags)
+    
+    valid_data_windows[[j]] <- windowed_data[[day_tag]]
+    
+    valid_data_windows[[j]]$Anomaly <- current_flags
   }
+  
+  save(valid_data_windows,file=paste0(getwd(),"/valid_data.RData"))  
 }
 
 
