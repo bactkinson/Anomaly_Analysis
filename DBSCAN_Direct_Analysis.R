@@ -135,6 +135,8 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 
 {
+  memory.limit(size = 384000)
+  
   start_time <- Sys.time()
 
   current_dir <- getwd()
@@ -148,7 +150,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   ## Preprocess min_pts
   percentage_differences <- read.csv(paste0(current_dir,"/one_half_percentage_diffs.csv"))[,2]
   
-  min_pts_modified <- ifelse(percentage_differences>15,floor(min_pts_to_use/2),floor(min_pts_to_use))
+  min_pts_modified <- ifelse(percentage_differences>15,floor(min_pts_to_use),floor(min_pts_to_use/2))
 
 }
 
