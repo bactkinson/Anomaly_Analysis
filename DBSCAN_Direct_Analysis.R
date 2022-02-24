@@ -194,35 +194,35 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
   #     dev.off()
   # }
-
+}
 
 ## Experimenting with approx parameter
-{
-  start_time <- Sys.time()
-  
-  set.seed(30)
-  
-  r_inds <- sample(seq(1,277),20)
-  
-  random_subset <- lapply(windowed_data[r_inds],function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
-  
-  random_pts_to_use <- min_pts_to_use[r_inds]
-  
-  full_knee <- numeric(length(r_inds))
-  
-  approx_knee <- numeric(length(r_inds))
-  
-  for(i in 1:length(r_inds)){
-    # full_knee[i] <- find_the_knee(random_subset[[i]],floor(random_pts_to_use[i]))
-    
-    approx_knee[i] <- find_the_knee_approx(random_subset[[i]],random_pts_to_use[i])
-    
-  }
-  # knee_tibble <- tibble("No_Approx" = full_knee, "Approx"=approx_knee) %>%
-  #   kableExtra::kbl() %>%
-  #   kableExtra::kable_classic()
-  print(Sys.time()-start_time)
-}
+# {
+#   start_time <- Sys.time()
+#   
+#   set.seed(30)
+#   
+#   r_inds <- sample(seq(1,277),20)
+#   
+#   random_subset <- lapply(windowed_data[r_inds],function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
+#   
+#   random_pts_to_use <- min_pts_to_use[r_inds]
+#   
+#   full_knee <- numeric(length(r_inds))
+#   
+#   approx_knee <- numeric(length(r_inds))
+#   
+#   for(i in 1:length(r_inds)){
+#     # full_knee[i] <- find_the_knee(random_subset[[i]],floor(random_pts_to_use[i]))
+#     
+#     approx_knee[i] <- find_the_knee_approx(random_subset[[i]],random_pts_to_use[i])
+#     
+#   }
+#   # knee_tibble <- tibble("No_Approx" = full_knee, "Approx"=approx_knee) %>%
+#   #   kableExtra::kbl() %>%
+#   #   kableExtra::kable_classic()
+#   print(Sys.time()-start_time)
+# }
 
 # {
   list_to_tibble <- function(data_subset_list){
