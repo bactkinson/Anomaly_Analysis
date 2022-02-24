@@ -24,11 +24,12 @@ txdot_inventory_filtered <- txdot_inventory %>%
 txdot_joined <- dplyr::inner_join(txdot_linework_filtered, txdot_inventory_filtered,
                                   by = "GID")
 
-tmap_mode("plot")
+tmap_mode("view")
 
-test_osm <- tmap::read_osm(txdot_joined)
+# test_osm <- tmap::read_osm(txdot_joined)
 
-basic_map <- tm_shape(test_osm) +
+basic_map <- tm_basemap(leaflet::providers$OpenStreetMap) +
+  tm_shape(txdot_joined)+
   tm_lines()
 
 basic_map
