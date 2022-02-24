@@ -179,11 +179,11 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 ## Experimenting with select days.
 {
-  min_pts <- min_pts_to_use[203]
-
-  poll_data <- windowed_data[[203]] %>%
-    select(BC,CO2,NOx,UFP) %>%
-    mutate_all(scale)
+  # min_pts <- min_pts_to_use[203]
+  # 
+  # poll_data <- windowed_data[[203]] %>%
+  #   select(BC,CO2,NOx,UFP) %>%
+  #   mutate_all(scale)
 
   # full_knee <- find_the_knee(poll_data,min_pts)
   #  
@@ -191,6 +191,34 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   # 
   # plot_knees(poll_data,min_pts,title = "Day_269_Full")
 
+}
+
+## Experimenting with approx parameter
+{
+  start_time <- Sys.time()
+  
+  set.seed(30)
+  
+  r_inds <- sample(seq(1,277),20)
+  
+  random_subset <- lapply(windowed_data[r_inds],function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
+  
+  random_pts_to_use <- min_pts_to_use[r_inds]
+  
+  full_knee <- numeric(length(r_inds))
+  
+  approx_knee <- numeric(length(r_inds))
+  
+  for(i in 1:length(r_inds)){
+    # full_knee[i] <- find_the_knee(random_subset[[i]],floor(random_pts_to_use[i]))
+    
+    approx_knee[i] <- find_the_knee_approx(random_subset[[i]],random_pts_to_use[i])
+    
+  }
+  # knee_tibble <- tibble("No_Approx" = full_knee, "Approx"=approx_knee) %>%
+  #   kableExtra::kbl() %>%
+  #   kableExtra::kable_classic()
+  print(Sys.time()-start_time)
 }
 
 ## Running the main DBSCAN routine
@@ -221,34 +249,34 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 # 
 # }
 
-# {
-  list_to_tibble <- function(data_subset_list){
-  # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
-  # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
-  # return(output_tibble)
-
-    current_grp_index <- 1
-
-    output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
-
-    for(i in 2:length(data_subset_list)) {
-        current_grp_index <- i
-
-        current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
-
-        output_tibble <- rbind(output_tibble,current_tibble)
-      }
-    return(output_tibble)
-  }
+# # {
+#   list_to_tibble <- function(data_subset_list){
+#   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+#   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+#   # return(output_tibble)
 # 
-#   db_tibble <- list_to_tibble(dbOutput)
+#     current_grp_index <- 1
 # 
-#   # anomalous_emissions <- db_tibble %>%
-#   #   filter(Anomaly==2) %>%
-#   #   select(LST,BC,CO2,NOx,UFP)
+#     output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
 # 
-#   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))
-# }
+#     for(i in 2:length(data_subset_list)) {
+#         current_grp_index <- i
+# 
+#         current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
+# 
+#         output_tibble <- rbind(output_tibble,current_tibble)
+#       }
+#     return(output_tibble)
+#   }
+# # 
+# #   db_tibble <- list_to_tibble(dbOutput)
+# # 
+# #   # anomalous_emissions <- db_tibble %>%
+# #   #   filter(Anomaly==2) %>%
+# #   #   select(LST,BC,CO2,NOx,UFP)
+# # 
+# #   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))
+# # }
 
 
 ## Finding the knee sensitivity analysis.
@@ -304,37 +332,37 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 
 ## Knee analysis
-{
-  memory.limit(size = 384000)
-
-  trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
-
-  set.seed(10)
-
-  indexes <- seq(1,length(trimmed_data),1)
-
-  random_indexes <- sample(indexes,30)
-
-  for(i in 1:length(random_indexes)){
-    cur_idx <- random_indexes[i]
-
-    plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
-
-    print(paste("Iteration",i,"Completed"))
-
-    print("------------")
-  }
-  
-  # troubleshoot_indices <- c(8,18,23,25,26,33,40,44,48,62,68,71,81,84,90,93,96,105,109,116,127,131,146,157,158,187,191,194,209,228,238,243,269)
-  
-  # for(i in 1:length(trimmed_data)){
-  #   cur_idx <- i
-  # 
-  #   plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day_",cur_idx))
-  # 
-  #   print(paste("Iteration",i,"Completed"))
-  # 
-  #   print("------------")
-  # }
-}
-
+# {
+#   memory.limit(size = 384000)
+# 
+#   trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
+# 
+#   set.seed(10)
+# 
+#   indexes <- seq(1,length(trimmed_data),1)
+# 
+#   random_indexes <- sample(indexes,30)
+# 
+#   for(i in 1:length(random_indexes)){
+#     cur_idx <- random_indexes[i]
+# 
+#     plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
+# 
+#     print(paste("Iteration",i,"Completed"))
+# 
+#     print("------------")
+#   }
+#   
+#   # troubleshoot_indices <- c(8,18,23,25,26,33,40,44,48,62,68,71,81,84,90,93,96,105,109,116,127,131,146,157,158,187,191,194,209,228,238,243,269)
+#   
+#   # for(i in 1:length(trimmed_data)){
+#   #   cur_idx <- i
+#   # 
+#   #   plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day_",cur_idx))
+#   # 
+#   #   print(paste("Iteration",i,"Completed"))
+#   # 
+#   #   print("------------")
+#   # }
+# }
+# 
