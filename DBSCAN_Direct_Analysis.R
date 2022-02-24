@@ -120,37 +120,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
       dplyr::select(BC,CO2,NOx,UFP) %>%
       mutate_all(scale)
   
-  # cl <- makeCluster(no_cores)
-  
-  # eps_grid <- seq(0.1,3,by = 0.1)
-  
-  # pre_mod_storage <- vector(mode = "list", length = length(eps_grid))
-  
-  # for(i in 1:length(eps_grid)){
-  #   pre_mod_storage[[i]] <- list(poll_data,eps_grid[i],min_pts_param)
-  # }
-  
-  # clusterExport(cl=cl,varlist = c("pre_mod_storage"),envir = environment())
-  # 
-  # mod_storage <- parallel::parLapply(cl,pre_mod_storage,function(x) dbscan::dbscan(x[[1]],eps = x[[2]],minPts = x[[3]]))
-  # 
-  # cluster_compactness <- unlist(
-  #   lapply(mod_storage,function(x) core_cluster_compactness(x,poll_data)),
-  #   use.names = FALSE)
-  # 
-  # optimal_index <- which.min(cluster_compactness)
-  # 
-  # optimal_mod <- mod_storage[[optimal_index]]
-  # 
-  # assignments <- optimal_mod$cluster
-  # 
-  # assignments[assignments==0] <- 2
-  # 
-  # print(eps_grid[optimal_index])
-  # 
-  # stopCluster(cl=cl)
-  
-  current_eps <- find_the_knee(poll_data,min_pts = floor(min_pts_param/2))
+  current_eps <- find_the_knee(poll_data,min_pts = min_pts_param)
   
   db_clust <- dbscan::dbscan(poll_data,minPts = min_pts_param,eps = current_eps)
   
@@ -173,53 +143,56 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   windowed_data <- lapply(windowed_data,function(x) x %>%  dplyr::select(-c(Delta_D)))
 
-  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage_boot/min_pts_storage_V01_run_1.csv"))[,2]
+  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
+  
+  ## Preprocess min_pts
+  percentage_differences <- read.csv(paste0(current_dir,"/one_half_percentage_diffs.csv"))[,2]
+  
+  min_pts_modified <- ifelse(percentage_differences>15,floor(min_pts_to_use/2),floor(min_pts_to_use))
 
 }
 
 ## Experimenting with select days.
-{
-  min_pts <- min_pts_to_use[203]
-
-  poll_data <- windowed_data[[203]] %>%
-    select(BC,CO2,NOx,UFP) %>%
-    mutate_all(scale)
-
-  # full_knee <- find_the_knee(poll_data,min_pts)
-  #  
-  # half_knee <- find_the_knee(poll_data,floor(min_pts/2))
-  # 
-  # plot_knees(poll_data,min_pts,title = "Day_269_Full")
-
-}
-
-## Running the main DBSCAN routine
-# {  
-#   aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
+# {
+#   min_pts <- min_pts_to_use[203]
 # 
-#   for(j in 1:length(aggregate_list)){
-#     aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
-#   }
+#   poll_data <- windowed_data[[203]] %>%
+#     select(BC,CO2,NOx,UFP) %>%
+#     mutate_all(scale)
 # 
-#   # dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
-#   
-#   dbOutput <- vector(mode = "list",length = length(aggregate_list))
-#   
-#   for(j in 31:length(aggregate_list)){
-#     print(j)
-#     dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
-#   }
-#   
-#   # for(j in 1:20){
-#   #     file_string <- paste0("Iteration_",j,"cv.png")
-#   #     png(paste0(current_dir,"/Anomaly_Analysis_Plots/",file_string))
-#   #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
-#   #     dev.off()
-#   # }
-# 
-#   # db_tibble <- list_to_tibble(dbOutput)
+#   # full_knee <- find_the_knee(poll_data,min_pts)
+#   #  
+#   # half_knee <- find_the_knee(poll_data,floor(min_pts/2))
+#   # 
+#   # plot_knees(poll_data,min_pts,title = "Day_269_Full")
 # 
 # }
+
+## Running the main DBSCAN routine
+{
+  aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
+
+  for(j in 1:length(aggregate_list)){
+    aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
+  }
+
+  dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
+
+  # dbOutput <- vector(mode = "list",length = length(aggregate_list))
+  # 
+  # for(j in 1:length(aggregate_list)){
+  #   print(j)
+  #   dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
+  # }
+
+  # for(j in 1:20){
+  #     file_string <- paste0("Iteration_",j,"cv.png")
+  #     png(paste0(current_dir,"/Anomaly_Analysis_Plots/",file_string))
+  #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
+  #     dev.off()
+  # }
+
+}
 
 # {
   list_to_tibble <- function(data_subset_list){
@@ -240,14 +213,14 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
       }
     return(output_tibble)
   }
-# 
-#   db_tibble <- list_to_tibble(dbOutput)
-# 
+
+  db_tibble <- list_to_tibble(dbOutput)
+
 #   # anomalous_emissions <- db_tibble %>%
 #   #   filter(Anomaly==2) %>%
 #   #   select(LST,BC,CO2,NOx,UFP)
 # 
-#   # write.csv(anomalous_emissions,paste0(current_dir,"/Anomalous_Emissions_Results/Anomalous_Emissions_cv.csv"))
+  write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V02_test.csv"))
 # }
 
 
@@ -304,37 +277,37 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 
 ## Knee analysis
-{
-  memory.limit(size = 384000)
-
-  trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
-
-  set.seed(10)
-
-  indexes <- seq(1,length(trimmed_data),1)
-
-  random_indexes <- sample(indexes,30)
-
-  for(i in 1:length(random_indexes)){
-    cur_idx <- random_indexes[i]
-
-    plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
-
-    print(paste("Iteration",i,"Completed"))
-
-    print("------------")
-  }
-  
-  # troubleshoot_indices <- c(8,18,23,25,26,33,40,44,48,62,68,71,81,84,90,93,96,105,109,116,127,131,146,157,158,187,191,194,209,228,238,243,269)
-  
-  # for(i in 1:length(trimmed_data)){
-  #   cur_idx <- i
-  # 
-  #   plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day_",cur_idx))
-  # 
-  #   print(paste("Iteration",i,"Completed"))
-  # 
-  #   print("------------")
-  # }
-}
+# {
+#   memory.limit(size = 384000)
+# 
+#   trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
+# 
+#   set.seed(10)
+# 
+#   indexes <- seq(1,length(trimmed_data),1)
+# 
+#   random_indexes <- sample(indexes,30)
+# 
+#   for(i in 1:length(random_indexes)){
+#     cur_idx <- random_indexes[i]
+# 
+#     plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day ",cur_idx))
+# 
+#     print(paste("Iteration",i,"Completed"))
+# 
+#     print("------------")
+#   }
+#   
+#   # troubleshoot_indices <- c(8,18,23,25,26,33,40,44,48,62,68,71,81,84,90,93,96,105,109,116,127,131,146,157,158,187,191,194,209,228,238,243,269)
+#   
+#   # for(i in 1:length(trimmed_data)){
+#   #   cur_idx <- i
+#   # 
+#   #   plot_knees(trimmed_data[[cur_idx]],floor(min_pts_to_use[cur_idx]/2),paste0("Day_",cur_idx))
+#   # 
+#   #   print(paste("Iteration",i,"Completed"))
+#   # 
+#   #   print("------------")
+#   # }
+# }
 

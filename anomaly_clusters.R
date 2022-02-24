@@ -279,7 +279,13 @@ fraction_flagged <- function(percentile,poll,data){
   #   labs(title = "DBSCAN Confusion Matrix")+
   #   theme(legend.position = "none")
   
-  plot_confusion_matrix <- function(data_flags, reference_flags,plot_title){
+  plot_confusion_matrix <- function(data_flags, reference_flags,plot_title,reference_label,prediction_label){
+    # data_labels <- ifelse(data_flags==1,"Non_Anomaly","Anomaly")
+    # 
+    # reference_labels <- ifelse(reference_flags==1,"Non_Anomaly","Anomaly")
+    
+    # res_cm <- caret::confusionMatrix(as.factor(data_labels), as.factor(reference_labels))
+    
     res_cm <- caret::confusionMatrix(as.factor(data_flags), as.factor(reference_flags))
     
     res_table <- as.data.frame(res_cm$table) %>%
@@ -291,9 +297,10 @@ fraction_flagged <- function(percentile,poll,data){
         geom_tile(aes(alpha = 0.1)) + 
         geom_text(aes(label=Freq),fontface = "bold", size = 5, alpha = 1) +
         scale_fill_manual(values = c(Agree = "blue", Disagree = "red")) +
-        ylim(rev(levels(res_table$Reference)))+
-        labs(title = plot_title)+
-        theme(legend.position = "none")
+        labs(title = plot_title,x=prediction_label,y=reference_label)+
+        theme(legend.position = "none")+
+        ylim(rev(levels(res_table$Reference)))
+      
     )
 
   }
@@ -307,6 +314,16 @@ fraction_flagged <- function(percentile,poll,data){
   plot_confusion_matrix(drew_flags, valid_flags, "Drewnick Confusion Matrix")
     
 }
+
+# {
+#   half_emissions <- read.csv(paste0(getwd(),"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V01_one_half.csv"))
+#   
+#   full_emissions <- read.csv(paste0(getwd(),"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V01_all.csv"))
+#   
+#   plot_confusion_matrix(half_emissions$Anomaly, full_emissions$Anomaly, "Floor(min_pts/2) vs min_pts as reference")
+#   
+#   qt <- ifelse(half_emissions$Anomaly==1,"No_Anomaly","Anomaly")
+# }
 
 ## Assessing agreement between different approaches by comparing 
 ## results on daily basis
@@ -376,10 +393,6 @@ fraction_flagged <- function(percentile,poll,data){
   validation_results_by_day %>%
     kbl() %>%
     kable_classic()
-}
-
-{
-  plot_time_series_anomalies(db_grouped_anomalies[[209]],c("BC","CO2","NOx","UFP"),"DBSCAN_Day_209")
 }
 
 ## With drewnick data, db data, compare how many points in percentiles each method 
