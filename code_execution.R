@@ -9,6 +9,4 @@ tryCatch(
   }, error = function(e){
     send_message_to_myself("Error thrown in code execution","Error thrown in code execution on GriffinMain")
   }
-  
-  
 )

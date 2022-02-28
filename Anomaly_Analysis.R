@@ -9,18 +9,30 @@ options(error = recover)
 setwd("../")
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRPartitioningParallel.R"))
 source(paste0(getwd(),"/SIBaR_Background_Removal_and_Quantification/SIBaRUtils.R"))
+setwd(paste0(getwd(),"/Anomaly_Analysis/"))
 
 list_to_tibble <- function(data_subset_list){
   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
   # return(output_tibble)
+
+  current_grp_index <- 1
   
-  output_tibble <- data_subset_list[[1]]
-  for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,data_subset_list[[i]])}
+  output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
+  
+  for(i in 2:length(data_subset_list)) {
+    current_grp_index <- i
+    
+    current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
+    
+    output_tibble <- rbind(output_tibble,current_tibble)
+  }
   return(output_tibble)
 }
 
 {
+  current_dir <- getwd()
+  
   data_dir <- paste0(current_dir,"/Raw_Data_Alt")
   
   all_files <- list.files(data_dir)
@@ -93,6 +105,53 @@ list_to_tibble <- function(data_subset_list){
 #   
 #   write.csv(poll_data,paste0(getwd(),"Poll_Day_1.csv"))
 # }
+
+## Preparing data to send to GriffinLab computer
+
+# {
+#   set.seed(7)
+# 
+#   indexes <- seq(1,length(windowed_data),1)
+# 
+#   rand_indexes <- sample(indexes,30)
+# 
+#   for(k in 1:length(rand_indexes)){
+#     current_index <- rand_indexes[k]
+# 
+#     current_data <- cbind(windowed_data[[current_index]],"Anomaly"=rep(1,nrow(windowed_data[[current_index]])))
+# 
+#     write.csv(current_data,paste0(getwd(),"/Algorithm_Validation_Data/Day_",current_index,".csv"))
+#   }
+# }
+
+## Create validation set.
+{
+  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
+  
+  valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
+  
+  valid_data_windows <- vector(mode = "list", length = length(valid_label_files))
+  
+  valid_flags <- vector(,)
+  
+  for(j in seq_along(valid_label_files)){
+    day_tag <- as.numeric(
+      strsplit(
+        strsplit(valid_label_files[j],"_")[[1]][3],
+    "[.]")[[1]][1]
+    )
+    
+    current_flags <- unlist(read.csv(paste0(getwd(),"/Manually_Flagged_Anomalies/",valid_label_files[j])),use.names = FALSE)
+    
+    valid_flags <- c(valid_flags,current_flags)
+    
+    valid_data_windows[[j]] <- windowed_data[[day_tag]]
+    
+    valid_data_windows[[j]]$Anomaly <- current_flags
+  }
+  
+  save(valid_data_windows,file=paste0(getwd(),"/valid_data.RData"))  
+}
 
 
 # {
@@ -227,74 +286,3 @@ list_to_tibble <- function(data_subset_list){
 #   
 # }
 
-# Determine number of points needed for DBSCAN routine.
-
-# {
-#   min_pts_storage <- numeric(length(windowed_data))
-# 
-#   find_min_pts <- function(windowed_data,polls_to_pull){
-#     ## Given windowed data frame
-#     ## For each poll in polls_to_pull
-#     ## Create data frame with poll, time stamps
-#     ## Run partitioning routine on subsetted data_frame
-#     ## From partitioning routine, determine the number of points
-#     ## Classified as background
-#     ## Store number of points classified as background
-#     ## Repeat for all polls
-#     ## Once iteration through all polls in polls_to_pull complete,
-#     ## compute average of number pts classified as background
-#     ## Return average.
-# 
-#     num_pts <- numeric(length(polls_to_pull))
-# 
-#     markov_timestamps <- windowed_data %>%
-#       dplyr::select(LST) %>%
-#       unlist(use.names = FALSE) %>%
-#       as.POSIXct(tz = Sys.timezone(),origin = "1970-01-01")
-# 
-#     for(k in 1:length(polls_to_pull)){
-#       current_poll <- polls_to_pull[k]
-# 
-#       markov_poll <- windowed_data %>%
-#         dplyr::select(current_poll) %>%
-#         unlist(.,use.names = FALSE)
-# 
-#       tryCatch(
-#         {
-#           current_partition <- partitionRoutine(markov_poll,markov_timestamps,
-#                                             bootstrap_iterations = 50,
-#                                             transform_string = "log",
-#                                             length_tolerance = 0.2,
-#                                             cores = 2)
-# 
-#           num_pts[k] <- length(which(current_partition$States==1))
-#         },
-#         error = function(cond){
-#           print("Error condition executed")
-#           num_pts[k] <- NA
-#         }
-#       )
-#     }
-# 
-#     min_pts <- mean(num_pts,na.rm = TRUE)
-#     return(min_pts)
-#   }
-# 
-#   for(j in 1:length(windowed_data)){
-#     poll_data <- windowed_data[[j]] %>%
-#       dplyr::select(BC,CO2,NOx,UFP) %>%
-#       mutate_all(scale)
-# 
-#     # sizes <- lof(poll_data,minPts = 5)
-# 
-#     min_pts <- find_min_pts(windowed_data[[j]],c("BC","CO2","NOx","UFP"))
-# 
-#     min_pts_storage[j] <- min_pts
-# 
-#     print(paste0("j: ",j))
-#     print(min_pts)
-#     print("------")
-#   }
-# 
-#   send_message_to_myself("Routine completed", "routine completed")
-# }

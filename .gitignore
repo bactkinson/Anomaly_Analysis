@@ -16,3 +16,10 @@ SIBaR_Errors/
 Miscellaneous_Figures/
 one_half_percentage_diffs.csv
 two_thirds_percentage_diffs.csv
+code_execution.R
+Manually_Flagged_Anomalies/
+Algorithm_Validation_Data/
+Algorithm_Validation_Data.zip
+valid_data.RData
+distance_diffs_experiment.R
+
