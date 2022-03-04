@@ -7,7 +7,7 @@ require(parallel)
 ## Required functions
 find_the_knee <- function(poll_data,min_pts){
 
-  tt <- sort(kNNdist(poll_data,k=min_pts))
+  tt <- sort(dbscan::kNNdist(poll_data,k=min_pts))
 
   dist_subset <- tt[1:30]
   for(i in 31:length(tt)){
@@ -115,14 +115,14 @@ core_cluster_compactness <- function(dbscan_mod,poll_data){
   return(avg_distance)
 }
 
-return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::detectCores()-2){
+return_anomalies <- function(windowed_data,min_pts_param){
   poll_data <- windowed_data %>%
       dplyr::select(BC,CO2,NOx,UFP) %>%
-      mutate_all(scale)
+      dplyr::mutate_all(scale)
   
   current_eps <- find_the_knee(poll_data,min_pts = min_pts_param)
   
-  db_clust <- dbscan::dbscan(poll_data,minPts = min_pts_param,eps = current_eps)
+  db_clust <- dbscan::dbscan(poll_data,minPts = min_pts_param,eps = current_eps,borderPoints = FALSE)
   
   assignments <- db_clust$cluster
   
@@ -145,12 +145,12 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   windowed_data <- lapply(windowed_data,function(x) x %>%  dplyr::select(-c(Delta_D)))
 
-  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
+  # min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
   
   ## Preprocess min_pts
-  percentage_differences <- read.csv(paste0(current_dir,"/one_half_percentage_diffs.csv"))[,2]
-  
-  min_pts_modified <- ifelse(percentage_differences>15,floor(min_pts_to_use),floor(min_pts_to_use/2))
+  # percentage_differences <- read.csv(paste0(current_dir,"/one_half_percentage_diffs.csv"))[,2]
+  # 
+  # min_pts_modified <- ifelse(percentage_differences>15,floor(min_pts_to_use),floor(min_pts_to_use/2))
 
 }
 
@@ -172,15 +172,23 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 ## Running the main DBSCAN routine
 {
-  aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
+  aggregate_list <- vector(mode="list", length = length(windowed_data))
 
-  for(j in 1:length(aggregate_list)){
-    aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
+  for(j in 1:length(windowed_data)){
+    aggregate_list[[j]] <- list(windowed_data[[j]],floor(0.03*nrow(windowed_data[[j]])))
   }
 
-  dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
+  require(parallel)
+  
+  no_cores <- detectCores()-2
+  
+  cls <- makeCluster(no_cores)
+  
+  clusterExport(cls, varlist = c("find_the_knee", "return_anomalies", "aggregate_list","%>%"), envir = .GlobalEnv)
+  
+  dbOutput <- parLapply(cls,aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
 
-
+  stopCluster(cls)
   # dbOutput <- vector(mode = "list",length = length(aggregate_list))
   # 
   # for(j in 1:length(aggregate_list)){
@@ -224,7 +232,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 #   print(Sys.time()-start_time)
 # }
 
-# {
+{
   list_to_tibble <- function(data_subset_list){
   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
@@ -250,8 +258,8 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 #   #   filter(Anomaly==2) %>%
 #   #   select(LST,BC,CO2,NOx,UFP)
 # 
-  write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V02_test.csv"))
-# }
+  write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V05.csv"))
+}
 
 
 
