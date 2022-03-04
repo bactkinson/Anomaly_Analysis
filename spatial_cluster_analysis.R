@@ -376,27 +376,27 @@ inverted_cluster_means <- function(cluster_anomalies_object){
       kable(col.names = c(expression(paste("BC(ng/",m^3)),
                                      expression(paste(CO[2],"(ppm)")),
                                      expression(paste(NO[x],"(ppb)")),
-                                     expression(paste("UFP(p/cc")))) %>%
+                                     expression(paste("UFP(p/cc)")))) %>%
       kable_styling()
   )
   return(transformed_centers)
   
 }
 
-inverted_cluster_means(cluster_output)
-
 ## Data preprocessing
 {
+  require(data.table)
+  
   load(paste0(getwd(),"/txdot_roadways/txdot_joint_inventory.RData"))
   
   ## Load in anomalous emissions. For now, we use DBSCAN_v01
-  labeled_anomalous_emissions <- read.csv(paste0(getwd(),
+  labeled_anomalous_emissions <- fread(paste0(getwd(),
                                          "/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv")) %>%
     select(BC,CO2,NOx,UFP,Lat1,Long1,Anomaly,Uniq_Fac) %>%
     filter(Anomaly==2) %>%
     st_as_sf(.,coords = c("Long1", "Lat1"), crs = "EPSG:4326") %>%
-    st_transform("EPSG:32615") %>%
-    self_sample_removal()
+    st_transform("EPSG:32615") #%>%
+    # self_sample_removal()
   
   ## Going to transform txdot roadway coordinates to WGS84 datum for now.
   txdot_joint_inventory <- st_transform(txdot_joint_inventory, "EPSG:32615")
@@ -539,3 +539,57 @@ inverted_cluster_means(cluster_output)
   
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_BC_UFP_Anomalies_Over_Total_CT_Bar.png"),height = 4, width = 8)
 }
+
+
+## Plotting DBSCAN results for each day.
+# {
+#   
+#   for(k in 1:length(db_grouped_anomalies)){
+#     plot_time_series_anomalies(db_grouped_anomalies[[k]], polls_to_pull = c("BC","CO2","NOx","UFP"),
+#                                title = paste0("DBSCAN_Day_",k),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Results/"))
+#   }
+# }
+
+## Generate 20 random time series comparing flagged anomalies for Drewnick, DB
+## quantile_or, and quantile_and methods
+# {
+#   set.seed(3)
+#   
+#   grouped_indices <- seq(1,277,1)
+#   
+#   random_indices <- sample(grouped_indices,20)
+#   
+#   for(j in 1:length(random_indices)){
+#     print(j)
+#     print("-------")
+#     
+#     current_index <- random_indices[j]
+#     
+#     plot_time_series_anomalies(db_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("DBSCAN_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+# 
+#     plot_time_series_anomalies(drew_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("Drewnick_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+#     
+#     plot_time_series_anomalies(qor_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("QOR_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+#     
+#     plot_time_series_anomalies(qand_grouped_anomalies[[current_index]],
+#                                c("BC","CO2","NOx","UFP"),
+#                                paste0("QAND_Day_",current_index),
+#                                save_graph = T,
+#                                directory = paste0(getwd(),"/Miscellaneous_Figures/Comparing_All_Four/"))
+#     
+#   }
+# }
