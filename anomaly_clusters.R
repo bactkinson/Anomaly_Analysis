@@ -3,9 +3,54 @@ require(cluster)
 require(NbClust)
 require(tidyverse)
 
+save_plot <- function(filename,width,height){
+  
+  ggsave(filename = filename,
+         device = "png",
+         units = "in",
+         width = width,
+         height = height,
+         dpi = 300)
+}
+
+plot_confusion_matrix <- function(data_flags, reference_flags,plot_title,reference_label,prediction_label){
+  
+  res_cm <- caret::confusionMatrix(as.factor(data_flags), as.factor(reference_flags))
+  
+  res_table <- as.data.frame(res_cm$table) %>%
+    mutate(Agreement = ifelse(Prediction==Reference, "Agree", "Disagree")) %>%
+    mutate_at(1:2,~ as.factor(ifelse(.==1, "Normal", "Anomaly"))) %>%
+    group_by(Prediction)
+  
+  
+  print(res_table)
+  
+  print(levels(res_table$Reference))
+  
+  print(levels(res_table$Prediction))
+  
+  # print(rev(levels(res_table$Reference)))
+  
+  print(
+    ggplot(data = res_table, aes(Prediction, Reference, fill = Agreement)) +
+      geom_tile(aes(alpha = 0.4)) +
+      geom_text(aes(label=Freq),fontface = "bold", size = 7,family = "serif") +
+      xlim(rev(levels(res_table$Prediction)))+
+      scale_fill_manual(values = c(Agree = munsell::mnsl("5BG 9/8"), Disagree = munsell::mnsl("5R 5/18"))) +
+      labs(title = plot_title,x=prediction_label,y=reference_label,family = "mono")+
+      theme_classic()+
+      theme(legend.position = "none",plot.title = element_text(face = "bold", size = 14),
+            text = element_text(family = "serif"),axis.text.x = element_text(size = 10),
+            axis.text.y = element_text(size = 10),axis.title = element_text(face = "bold"))
+    
+  )
+      
+  
+  
+}
+
 ## Writing function that colors anomalous points red in time series data to evaluate
 ## algorithm performance
-
 plot_time_series_anomalies <- function(windowed_data,polls_to_pull,title,
                                        save_graph = F, directory = getwd()){
 
@@ -86,40 +131,59 @@ fraction_flagged <- function(percentile,poll,data){
   return(fraction_anomalies*100)
 }
 
+eval_agreement <- function(valid_window,data_window){
+    valid_flags <- valid_window$Anomaly
+    
+    data_flags <- data_window$Anomaly
+    
+    perc_agreement <- length(which(valid_flags==data_flags))/length(data_flags)*100
+    
+    return(round(perc_agreement,2))
+}
+
+
 
 {
- ## Read in the anomalous data. Preprocessing
+ ## Read in the anomalous data. Preprocessing.
+  require(data.table)
   current_dir <- getwd()
   
-  db_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V01_run_1.csv"),
-                             row.names = 1)
+  # db_data <- fread(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_Test_One_Twentieth.csv"),verbose = TRUE)
   
-  drew_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Drewnick.csv"),
-                             row.names = 1)
+  # drew_data <- fread(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Drewnick.csv"))
+  # 
+  qor_data <- fread(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv"))
+  # 
+  # qand_data <- fread(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_AND.csv"))
 
-  qor_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv"),
-                             row.names = 1)
+  # drew_grouped_anomalies <- drew_data %>%
+  #   group_split(Uniq_Fac,.keep = FALSE)
 
-  qand_data <- read.csv(paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_AND.csv"),
-                             row.names = 1)
-
-  drew_grouped_anomalies <- drew_data %>%
-    group_split(Uniq_Fac,.keep = FALSE)
-
-  db_grouped_anomalies <- db_data %>%
-    group_split(Uniq_Fac,.keep = FALSE)
+  # db_grouped_anomalies <- db_data %>%
+  #   group_split(Uniq_Fac,.keep = FALSE)
 
   qor_grouped_anomalies <- qor_data %>%
     group_split(Uniq_Fac,.keep = FALSE)
 
-  qand_grouped_anomalies <- qand_data %>%
-    group_split(Uniq_Fac,.keep = FALSE)
+  # qand_grouped_anomalies <- qand_data %>%
+  #   group_split(Uniq_Fac,.keep = FALSE)
+  
+  # db_grouped_anomalies_v03 <- db_data_v03 %>%
+  #   group_split(Uniq_Fac,.keep = FALSE)
 
   # anomalous_emissions <- anomalous_data %>%
   #   filter(Anomaly==2) %>%
   #   dplyr::select(BC,CO2,NOx,UFP) %>%
   #   mutate_all(scale)
 }
+
+## Testing agreement between outputs on different variations in the DBSCAN algorithm
+# {
+#   plot_confusion_matrix(db_data$Anomaly, db_data_no_flooring$Anomaly,
+#   plot_title = "DBSCAN V02 vs. DBSCAN No Flooring",
+#   reference_label = "No Flooring",
+#   prediction_label = "DBSCAN_VO2 (Selective Flooring)")
+# }
 
 # Cluster validation
 # {
@@ -197,11 +261,11 @@ fraction_flagged <- function(percentile,poll,data){
   
   db_flags <- vector(,)
   
-  drew_flags <- vector(,)
-  
-  qor_flags <- vector(,)
-  
-  qand_flags <- vector(,)
+  # drew_flags <- vector(,)
+  # 
+  # qor_flags <- vector(,)
+  # 
+  # qand_flags <- vector(,)
   
   valid_flags <- vector(,)
   
@@ -213,19 +277,16 @@ fraction_flagged <- function(percentile,poll,data){
         strsplit(valid_label_files[j],"_")[[1]][3],
     "[.]")[[1]][1]
     )
-    if(day_tag==218){
-      next
-    }
-    
+
     print(day_tag)
     
     db_flags <- c(db_flags,db_grouped_anomalies[[day_tag]]$Anomaly)
     
-    drew_flags <- c(drew_flags, drew_grouped_anomalies[[day_tag]]$Anomaly)
-    
-    qor_flags <- c(qor_flags, qor_grouped_anomalies[[day_tag]]$Anomaly)
-    
-    qand_flags <- c(qand_flags, qand_grouped_anomalies[[day_tag]]$Anomaly)
+    # drew_flags <- c(drew_flags, drew_grouped_anomalies[[day_tag]]$Anomaly)
+    # 
+    # qor_flags <- c(qor_flags, qor_grouped_anomalies[[day_tag]]$Anomaly)
+    # 
+    # qand_flags <- c(qand_flags, qand_grouped_anomalies[[day_tag]]$Anomaly)
     
     valid_flags <- c(valid_flags,valid_data_windows[[j]]$Anomaly)
   }
@@ -233,17 +294,17 @@ fraction_flagged <- function(percentile,poll,data){
   print(length(which(db_flags==valid_flags))/length(valid_flags))
   print("---------")
   
-  print("Percentage Agreeement between Drewnick, validation set")  
-  print(length(which(drew_flags==valid_flags))/length(valid_flags))
-  print("---------")
-  
-  print("Percentage Agreeement between QOR, validation set")  
-  print(length(which(qor_flags==valid_flags))/length(valid_flags))
-  print("---------")
-  
-  print("Percentage Agreeement between QAND, validation set")  
-  print(length(which(qand_flags==valid_flags))/length(valid_flags))
-  print("---------")
+  # print("Percentage Agreeement between Drewnick, validation set")  
+  # print(length(which(drew_flags==valid_flags))/length(valid_flags))
+  # print("---------")
+  # 
+  # print("Percentage Agreeement between QOR, validation set")  
+  # print(length(which(qor_flags==valid_flags))/length(valid_flags))
+  # print("---------")
+  # 
+  # print("Percentage Agreeement between QAND, validation set")  
+  # print(length(which(qand_flags==valid_flags))/length(valid_flags))
+  # print("---------")
   
   baseline_flags <- rep(1,length(valid_flags))
   
@@ -251,67 +312,21 @@ fraction_flagged <- function(percentile,poll,data){
   print(length(which(baseline_flags==valid_flags))/length(valid_flags))
   print("---------")
   
-  db_cm <- caret::confusionMatrix(as.factor(db_flags), as.factor(valid_flags))
+  plot_confusion_matrix(db_flags, valid_flags, "DBSCAN Confusion Matrix",
+                        reference_label = "Validation Set", 
+                        prediction_label = "DBSCAN_Test_One_Twentieth")
   
-  drew_cm <- caret::confusionMatrix(as.factor(drew_flags), as.factor(valid_flags))
-  
-  qor_cm <- caret::confusionMatrix(as.factor(qor_flags), as.factor(valid_flags))
-  
-  qand_cm <- caret::confusionMatrix(as.factor(qand_flags), as.factor(valid_flags))
-  
-  # as.table(db_cm) %>%
-  #   kbl() %>%
-  #   kable_styling()
+  # plot_confusion_matrix(qor_flags, valid_flags, "QOR Confusion Matrix",
+  #                       reference_label = "Validation Set",
+  #                       prediction_label = "QOR")
   # 
-  # as.table(qor_cm) %>%
-  #   kbl() %>%
-  #   kable_classic()
-  
-  # db_table <- as.data.frame(db_cm$table) %>%
-  #   mutate(Agreement = ifelse(Prediction==Reference, "Agree", "Disagree")) %>%
-  #   group_by(Reference)
+  # plot_confusion_matrix(qand_flags, valid_flags, "QAND Confusion Matrix",
+  #                       reference_label = "Validation Set",
+  #                       prediction_label = "QAND")
   # 
-  # ggplot(data = db_table, aes(Prediction, Reference, fill = Agreement)) +
-  #   geom_tile(aes(alpha = 0.1)) + 
-  #   geom_text(aes(label=Freq),fontface = "bold", size = 5, alpha = 1) +
-  #   scale_fill_manual(values = c(Agree = "blue", Disagree = "red")) +
-  #   ylim(rev(levels(db_table$Reference)))+
-  #   labs(title = "DBSCAN Confusion Matrix")+
-  #   theme(legend.position = "none")
-  
-  plot_confusion_matrix <- function(data_flags, reference_flags,plot_title,reference_label,prediction_label){
-    # data_labels <- ifelse(data_flags==1,"Non_Anomaly","Anomaly")
-    # 
-    # reference_labels <- ifelse(reference_flags==1,"Non_Anomaly","Anomaly")
-    
-    # res_cm <- caret::confusionMatrix(as.factor(data_labels), as.factor(reference_labels))
-    
-    res_cm <- caret::confusionMatrix(as.factor(data_flags), as.factor(reference_flags))
-    
-    res_table <- as.data.frame(res_cm$table) %>%
-      mutate(Agreement = ifelse(Prediction==Reference, "Agree", "Disagree")) %>%
-      group_by(Reference)
-    
-    print(
-      ggplot(data = res_table, aes(Prediction, Reference, fill = Agreement)) +
-        geom_tile(aes(alpha = 0.1)) + 
-        geom_text(aes(label=Freq),fontface = "bold", size = 5, alpha = 1) +
-        scale_fill_manual(values = c(Agree = "blue", Disagree = "red")) +
-        labs(title = plot_title,x=prediction_label,y=reference_label)+
-        theme(legend.position = "none")+
-        ylim(rev(levels(res_table$Reference)))
-      
-    )
-
-  }
-  
-  plot_confusion_matrix(db_flags, valid_flags, "DBSCAN Confusion Matrix")
-  
-  plot_confusion_matrix(qor_flags, valid_flags, "QOR Confusion Matrix")
-  
-  plot_confusion_matrix(qand_flags, valid_flags, "QAND Confusion Matrix")
-  
-  plot_confusion_matrix(drew_flags, valid_flags, "Drewnick Confusion Matrix")
+  # plot_confusion_matrix(drew_flags, valid_flags, "Drewnick Confusion Matrix",
+  #                       reference_label = "Validation Set",
+  #                       prediction_label = "Drewnick")
     
 }
 
@@ -329,16 +344,6 @@ fraction_flagged <- function(percentile,poll,data){
 ## results on daily basis
 
 {
-  eval_agreement <- function(valid_window,data_window){
-    valid_flags <- valid_window$Anomaly
-    
-    data_flags <- data_window$Anomaly
-    
-    perc_agreement <- length(which(valid_flags==data_flags))/length(data_flags)*100
-    
-    return(round(perc_agreement,2))
-  }
-  
   ## Want: Tibble with overall agreement expressed as percentage for 
   ## each technique. Column 1 contains Day Tag, Column 2 contains DBSCAN
   ## Column 3 contains Drewnick, etc.
@@ -394,105 +399,6 @@ fraction_flagged <- function(percentile,poll,data){
     kbl() %>%
     kable_classic()
 }
-
-## With drewnick data, db data, compare how many points in percentiles each method 
-## flags as anomalies OVERALL
-# {
-#   qt_increments <- c(0.1,0.25,0.5,0.75,0.9,0.95,0.99)
-# 
-#   drew_NOx <- sapply(qt_increments, function(x) round(fraction_flagged(x,"NOx",drew_data),1))
-#   drew_CO2 <- sapply(qt_increments, function(x) round(fraction_flagged(x,"CO2",drew_data),1))
-#   drew_UFP <- sapply(qt_increments, function(x) round(fraction_flagged(x,"UFP",drew_data),1))
-#   drew_BC <- sapply(qt_increments, function(x) round(fraction_flagged(x,"BC",drew_data),1))
-#   db_NOx <- sapply(qt_increments, function(x) round(fraction_flagged(x,"NOx",db_data),1))
-#   db_CO2 <- sapply(qt_increments, function(x) round(fraction_flagged(x,"CO2",db_data),1))
-#   db_UFP <- sapply(qt_increments, function(x) round(fraction_flagged(x,"UFP",db_data),1))
-#   db_BC <- sapply(qt_increments, function(x) round(fraction_flagged(x,"BC",db_data),1))
-# 
-#   quantile_tibble <- tibble("Drewnick_NOx"=drew_NOx,
-#                             "DBSCAN_NOx"=db_NOx,
-#                             "Drewnick_CO2"=drew_CO2,
-#                             "DBSCAN_CO2"=db_CO2,
-#                             "Drewnick_UFP"=drew_UFP,
-#                             "DBSCAN_UFP"=db_UFP,
-#                             "Drewnick_BC"=drew_BC,
-#                             "DBSCAN_BC"=db_BC)
-# 
-#   rownames(quantile_tibble) <- c("0.1","0.25","0.5","0.75","0.9","0.95","0.99")
-# 
-#   require(kableExtra)
-# 
-#   quantile_tibble %>%
-#     kbl() %>%
-#     kable_classic(html_font = "Cambria")
-# 
-# }
-# 
-# ## Investigating joint behavior. Doing it on day-by-day basis.
-# {
-#   fraction_flagged_joint <- function(percentile,data){
-# 
-#     polls <- c("BC","CO2","NOx","UFP")
-# 
-#     selected_poll <- data %>%
-#       select(all_of(polls))
-# 
-#     test <- apply(selected_poll,2,function(x) x > quantile(x,percentile))
-# 
-#     joint_truth <- apply(test,1,function(x) all(x))
-# 
-#     joint_greater <- data %>%
-#       filter(joint_truth)
-# 
-#     if(length(which(joint_greater$Anomaly==2))==0){
-#       return(0)
-#     } else{
-# 
-#       fraction <- length(which(joint_greater$Anomaly==2))/length(joint_greater$Anomaly)
-# 
-#       return(round(fraction*100,1))
-# 
-#     }
-# 
-#   }
-# 
-#   drew_joint_percentages <- lapply(drew_grouped_anomalies,function(x) fraction_flagged_joint(0.90,x)) %>%
-#     unlist(use.names = FALSE)
-# 
-#   db_joint_percentages <- lapply(db_grouped_anomalies,function(x) fraction_flagged_joint(0.90,x)) %>%
-#     unlist(use.names = FALSE)
-# 
-#   # comparison_tibble <- tibble("Drewnick_Percentages"=drew_joint_percentages,
-#   #                             "DB_Percentages"=db_joint_percentages)
-# 
-#   db_greater_drew <- which(db_joint_percentages>drew_joint_percentages)
-# 
-#   drew_greater_db <- which(drew_joint_percentages>db_joint_percentages)
-# 
-#   # comparison_tibble[db_greater_drew,] %>%
-#   #   kbl() %>%
-#   #   kable_classic()
-#   # 
-#   # comparison_tibble[drew_greater_db,] %>%
-#   #   kbl() %>%
-#   #   kable_classic()
-# 
-#   # for(i in 1:length(db_greater_drew)){
-#   #   day_index <- db_greater_drew[i]
-#   # 
-#   #   plot_time_series_anomalies(db_grouped_anomalies[[day_index]],
-#   #                              c("BC","CO2","NOx","UFP"),
-#   #                              paste0("DBSCAN_Day_",day_index),
-#   #                              save_graph = T,
-#   #                              directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Over_Drewnick/"))
-#   # 
-#   #   plot_time_series_anomalies(drew_grouped_anomalies[[day_index]],
-#   #                              c("BC","CO2","NOx","UFP"),
-#   #                              paste0("Drewnick_Day_",day_index),
-#   #                              save_graph = T,
-#   #                              directory = paste0(getwd(),"/Miscellaneous_Figures/DB_Over_Drewnick/"))
-#   # }
-# }
 
 ## Generate 20 random time series comparing flagged anomalies for Drewnick, DB
 ## quantile_or, and quantile_and methods
