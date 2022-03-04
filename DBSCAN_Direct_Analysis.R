@@ -119,7 +119,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   poll_data <- windowed_data %>%
       dplyr::select(BC,CO2,NOx,UFP) %>%
       mutate_all(scale)
-  
+
   current_eps <- find_the_knee(poll_data,min_pts = min_pts_param)
   
   db_clust <- dbscan::dbscan(poll_data,minPts = min_pts_param,eps = current_eps)
@@ -146,6 +146,14 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   windowed_data <- lapply(windowed_data,function(x) x %>%  dplyr::select(-c(Delta_D)))
 
   min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
+}
+
+
+## Running the main DBSCAN routine
+{
+  memory.limit(size = 500000)
+  
+  aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
   
   ## Preprocess min_pts
   percentage_differences <- read.csv(paste0(current_dir,"/one_half_percentage_diffs.csv"))[,2]
@@ -178,14 +186,14 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
     aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
   }
 
-  dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
+  # dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
 
-  # dbOutput <- vector(mode = "list",length = length(aggregate_list))
-  # 
-  # for(j in 1:length(aggregate_list)){
-  #   print(j)
-  #   dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
-  # }
+  dbOutput <- vector(mode = "list",length = length(aggregate_list))
+
+  for(j in 31:length(aggregate_list)){
+    print(j)
+    dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
+  }
 
   # for(j in 1:20){
   #     file_string <- paste0("Iteration_",j,"cv.png")
@@ -193,8 +201,36 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
   #     plot(NOx~CO2, data = dbOutput[[j]],  col = Anomaly,pch = 20)
   #     dev.off()
   # }
-
 }
+
+
+## Experimenting with approx parameter
+# {
+#   start_time <- Sys.time()
+#   
+#   set.seed(30)
+#   
+#   r_inds <- sample(seq(1,277),20)
+#   
+#   random_subset <- lapply(windowed_data[r_inds],function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
+#   
+#   random_pts_to_use <- min_pts_to_use[r_inds]
+#   
+#   full_knee <- numeric(length(r_inds))
+#   
+#   approx_knee <- numeric(length(r_inds))
+#   
+#   for(i in 1:length(r_inds)){
+#     # full_knee[i] <- find_the_knee(random_subset[[i]],floor(random_pts_to_use[i]))
+#     
+#     approx_knee[i] <- find_the_knee_approx(random_subset[[i]],random_pts_to_use[i])
+#     
+#   }
+#   # knee_tibble <- tibble("No_Approx" = full_knee, "Approx"=approx_knee) %>%
+#   #   kableExtra::kbl() %>%
+#   #   kableExtra::kable_classic()
+#   print(Sys.time()-start_time)
+# }
 
 # {
   list_to_tibble <- function(data_subset_list){
@@ -226,10 +262,10 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 # }
 
 
+
+
 ## Finding the knee sensitivity analysis.
 # {
-#   memory.limit(size = 384000)
-# 
 #   start_time <- Sys.time()
 # 
 #   current_dir <- getwd()
@@ -242,7 +278,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 # 
 #   no_subs <- 277
 # 
-#   knees_mat <- matrix(,nrow = 5,ncol = no_subs)
+#   knees_mat <- matrix(,nrow = 2,ncol = no_subs)
 # 
 # 
 #   for(i in 1:no_subs){
@@ -253,9 +289,12 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 #       dplyr::select(BC,CO2,NOx,UFP) %>%
 #       mutate_all(scale)
 # 
-#     increments <- c(floor(pts/5),floor(pts/4),floor(pts/3),floor(pts/2),pts)
+#     increments <- c(floor(pts/2),pts)
 # 
 #     knees_mat[,i] <- sapply(increments,function(x) find_the_knee(poll_data,x))
+#     
+#     print(paste0("Iteration ",i," Completed"))
+#     print("--------------")
 #   }
 # 
 #   print(Sys.time()-start_time)
@@ -265,23 +304,27 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 #   knees_tibble <- as_tibble(knees_mat) %>%
 #     dplyr::rename_with(~sub("V","Window_",.x)) %>%
 #     pivot_longer(cols = everything(),values_to = "Value", names_to = "Window")
-#   
 # 
-#   ggplot(data=knees_tibble) + 
+# 
+#   ggplot(data=knees_tibble) +
 #     geom_boxplot(mapping=aes(x=Window,y=Value)) +
-#     theme_classic() + 
+#     theme_classic() +
 #     ggtitle("Knee distributions for the first 10 data windows")
-#   
-#  percentage_diffs <- apply(knees_mat,2,function(x) abs(x[4]-x[5])/x[5]*100) 
+# 
+#  percentage_diffs <- apply(knees_mat,2,function(x) abs(x[1]-x[2])/x[2]*100)
+# 
+#  print(mean(percentage_diffs))
 #  
-#  mean(percentage_diffs)
+#  print(median(percentage_diffs))
+#  
+#  num_obs <- sapply(windowed_data,function(x) nrow(x))
 # }
 
 
 ## Knee analysis
 # {
 #   memory.limit(size = 384000)
-# 
+
 #   trimmed_data <- lapply(windowed_data,function(x) x %>% select(BC,CO2,NOx,UFP) %>% mutate_all(scale))
 # 
 #   set.seed(10)

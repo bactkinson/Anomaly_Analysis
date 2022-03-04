@@ -342,9 +342,48 @@ norm_by_total <- function(raw_anoms_output, total_points){
     
 }
 
-inverted_cluster_mean <- function(cluster_anomalies_object){
+inverted_cluster_means <- function(cluster_anomalies_object){
+  
+  centers <- cluster_anomalies_object[[1]]$centers
+  
+  pollutants <- cluster_anomalies_object[[2]] %>%
+    dplyr::select(BC,CO2,NOx,UFP) %>%
+    as_tibble() %>%
+    dplyr::select(-c(geometry))
+  
+  column_means <- colMeans(pollutants)
+  
+  column_sds <- apply(pollutants,2,sd)
+  
+  print(column_means)
+  
+  print(column_sds)
+  
+  print(centers)
+  
+  transformed_centers <- matrix(,nrow = nrow(centers), ncol = ncol(centers))
+  
+  for(k in 1:ncol(centers)){
+    transformed_centers[,k] <- (centers[,k]*column_sds[k])+column_means[k]  
+  }
+  
+  
+  require(knitr)
+  
+  
+  print(
+    transformed_centers %>%
+      kable(col.names = c(expression(paste("BC(ng/",m^3)),
+                                     expression(paste(CO[2],"(ppm)")),
+                                     expression(paste(NO[x],"(ppb)")),
+                                     expression(paste("UFP(p/cc")))) %>%
+      kable_styling()
+  )
+  return(transformed_centers)
   
 }
+
+inverted_cluster_means(cluster_output)
 
 ## Data preprocessing
 {
@@ -399,7 +438,7 @@ inverted_cluster_mean <- function(cluster_anomalies_object){
 ## Producing visualizations of clustered results.
 {
   visualize_cluster_results(plot_type = "fast_scatter",
-                            test_output[[2]],
+                            clustered_anomalous_emissions,
                             "BC", "CO2",
                             title = "Cluster Visualization After",
                             xlabel = "BC",
