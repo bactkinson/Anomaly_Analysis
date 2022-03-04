@@ -135,7 +135,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 
 {
-  memory.limit(size = 384000)
+  # memory.limit(size = 384000)
   
   start_time <- Sys.time()
 
@@ -145,21 +145,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
   windowed_data <- lapply(windowed_data,function(x) x %>%  dplyr::select(-c(Delta_D)))
 
-  min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
-}
-
-
-## Running the main DBSCAN routine
-{
-  memory.limit(size = 500000)
-  
-  aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
-  
-  ## Preprocess min_pts
-  percentage_differences <- read.csv(paste0(current_dir,"/one_half_percentage_diffs.csv"))[,2]
-  
-  min_pts_modified <- ifelse(percentage_differences>15,floor(min_pts_to_use),floor(min_pts_to_use/2))
-
+  # min_pts_to_use <- read.csv(paste0(current_dir,"/min_pts_storage.csv"))[,2]
 }
 
 ## Experimenting with select days.
@@ -180,17 +166,17 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 
 ## Running the main DBSCAN routine
 {
-  aggregate_list <- vector(mode="list", length = length(min_pts_to_use))
+  aggregate_list <- vector(mode="list", length = length(windowed_data))
 
   for(j in 1:length(aggregate_list)){
-    aggregate_list[[j]] <- list(windowed_data[[j]],min_pts_to_use[j])
+    aggregate_list[[j]] <- list(windowed_data[[j]],floor(nrow(windowed_data[[j]])/5))
   }
 
   # dbOutput <- lapply(aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
 
   dbOutput <- vector(mode = "list",length = length(aggregate_list))
 
-  for(j in 31:length(aggregate_list)){
+  for(j in 1:length(aggregate_list)){
     print(j)
     dbOutput[[j]] <- return_anomalies(aggregate_list[[j]][[1]], aggregate_list[[j]][[2]])
   }
@@ -258,7 +244,7 @@ return_anomalies <- function(windowed_data,min_pts_param,no_cores = parallel::de
 #   #   filter(Anomaly==2) %>%
 #   #   select(LST,BC,CO2,NOx,UFP)
 # 
-  write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V02_test.csv"))
+  write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_Test_One_Fifth.csv"))
 # }
 
 
