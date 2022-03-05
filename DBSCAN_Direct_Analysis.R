@@ -54,9 +54,9 @@ find_the_knee_quantile <- function(poll_data,min_pts){
 }
 
 
-plot_knees <- function(poll_data,min_pts,title){
+plot_knees <- function(poll_data,min_pts,directory,title, qt_check = F){
   
-  png(paste0(getwd(),"/Miscellaneous_Figures/Knee_Plots_Quantile_Comparison/",title,".png"))
+  png(paste0(directory,title,".png"))
   
   NNs <- sort(kNNdist(poll_data,k=min_pts))
   
@@ -82,21 +82,25 @@ plot_knees <- function(poll_data,min_pts,title){
   #   }
   # }
   
-  dist_subset <- NNs[1:30]
-  for(j in 31:length(NNs)){
-    if(NNs[j] > qnorm(0.95, mean=mean(dist_subset),sd = sd(dist_subset))){
-      second_knee <- NNs[j]
-      break
-    } else{
-      dist_subset <- c(dist_subset,NNs[j])
+  if(qt_check){
+  
+    dist_subset <- NNs[1:30]
+    for(j in 31:length(NNs)){
+      if(NNs[j] > qnorm(0.95, mean=mean(dist_subset),sd = sd(dist_subset))){
+        second_knee <- NNs[j]
+        break
+      } else{
+        dist_subset <- c(dist_subset,NNs[j])
+      }
     }
+  
   }
   
   plot(NNs~1,main = title,type = "l")
   
   abline(h=first_knee,lty = 2,col = "blue")
   
-  abline(h=second_knee,lty = 2, col = "red")
+  if(qt_check) {abline(h=second_knee,lty = 2, col = "red")}
   
   dev.off()
 }
@@ -169,6 +173,16 @@ return_anomalies <- function(windowed_data,min_pts_param){
 #   # plot_knees(poll_data,min_pts,title = "Day_269_Full")
 # 
 # }
+
+## Knee plot for paper.
+{
+  selected_poll_data <- windowed_data[[50]] %>% dplyr::select(BC,CO2,NOx,UFP) %>% dplyr::mutate_all(scale)
+    
+  directory <- paste0(getwd(),"/Manuscript/Figs/")
+  
+  plot_knees(selected_poll_data, floor(0.03*nrow(selected_poll_data)), directory = directory, title = "Graphical Example of Eps Selection")
+}
+
 
 ## Running the main DBSCAN routine
 {
