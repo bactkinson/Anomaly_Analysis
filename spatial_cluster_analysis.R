@@ -10,8 +10,7 @@ census_tract_cluster_statplots <- function(cluster_stat_df, cluster_type, title 
   ## For a given cluster_type, or Cluster_Label designation
   require(ggpubr)
   
-  print(
-    ggbarplot(
+  plt <- ggbarplot(
       cluster_stat_df, x = "Name", y = cluster_type,
       sort.val = "desc",
       x.text.angle = 45,
@@ -21,7 +20,12 @@ census_tract_cluster_statplots <- function(cluster_stat_df, cluster_type, title 
       title = title,
       ggtheme = theme_pubclean(flip = TRUE)
     ) + labs_pubr(base_size = 14, base_family = "serif")
+  
+  print(
+    plt
   )
+  
+  return(plt)
 }
 
 save_plot <- function(filename,width,height){
@@ -116,6 +120,8 @@ cluster_anomalies <- function(anomalous_emissions,centers=3,nstart=200){
 ## Mapping anomaly distributions by cluster.
 map_anomalies <- function(labeled_anomalous_emissions,cluster_label){
   
+  require(tmap)
+  
   isolated_anomalies <- labeled_anomalous_emissions %>%
     filter(Cluster_Label==cluster_label)
   
@@ -181,13 +187,17 @@ return_clustered_attributes <- function(anomalous_emissions, txdot_joint_invento
 
 plot_clustered_roadway_features <- function(clustered_attributes, title, xlabel, ylabel){
     
+  plt <- ggplot(data=clustered_attributes)+
+    geom_boxplot(aes(x = Cluster_Label,y=Traffic_Attribute))+
+    labs(title = title, x = xlabel, y = ylabel)+
+    theme_pubclean()+
+    labs_pubr()
+  
   print(
-    ggplot(data=clustered_attributes)+
-      geom_boxplot(aes(x = Cluster_Label,y=Traffic_Attribute))+
-      labs(title = title, x = xlabel, y = ylabel)+
-      theme_pubclean()+
-      labs_pubr()
+    plt
   )
+  
+  return(plt)
 }
 
 visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 = NULL, Var2 = NULL, 
@@ -199,14 +209,12 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
   if(plot_type=="fast_scatter"){
     require(scattermore)
     
-    print(
-      ggplot(tibble_to_plot,aes_string(Var1,Var2))+
+    plt <- ggplot(tibble_to_plot,aes_string(Var1,Var2))+
         geom_scattermore(aes(colour = Cluster_Label))+
         labs(x=xlabel,y=ylabel,title=title)+
         theme_classic()
-      
-      
-      
+    print(
+      plt
     )
   }
   
@@ -215,8 +223,7 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
     
     no_colors <- length(unique(tibble_to_plot$Cluster_Label))
     
-    print(
-      ggscatter(data=tibble_to_plot,x=Var1,y=Var2,
+    plt <- ggscatter(data=tibble_to_plot,x=Var1,y=Var2,
                 color="Cluster_Label",
                 shape = 19,
                 palette = colorRampPalette(c(mnsl('5B 8/8'),mnsl('5YR 7/12')))(no_colors),
@@ -228,6 +235,8 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
                 legend.title = "Cluster",
                 theme = theme_pubclean())+
         labs_pubr()
+    print(
+      plt
     )
   }
   
@@ -246,12 +255,16 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
     poll_labeller <- as_labeller(c(BC="BC (ng/m^3)",CO2="CO[2] (ppm)", NOx = "NO[x] (ppb)",UFP="UFP (p/cc)"),
                                  default = label_parsed)
     
-    print(
-      bp + facet_wrap(vars(Pollutant),nrow = 2,ncol = 2,scales = "free",
+    plt <-   bp + facet_wrap(vars(Pollutant),nrow = 2,ncol = 2,scales = "free",
                       labeller = poll_labeller)
+    
+    print(
+      plt
     )
     
   }
+  
+  return(plt)
 }
 
 ## For each polygon_name in Houston polygon names
@@ -389,14 +402,14 @@ inverted_cluster_means <- function(cluster_anomalies_object){
   
   load(paste0(getwd(),"/txdot_roadways/txdot_joint_inventory.RData"))
   
-  ## Load in anomalous emissions. For now, we use DBSCAN_v01
+  ## Load in anomalous emissions. For now, we use DBSCAN_v05
   labeled_anomalous_emissions <- fread(paste0(getwd(),
-                                         "/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv")) %>%
+                                         "/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V05.csv")) %>%
     select(BC,CO2,NOx,UFP,Lat1,Long1,Anomaly,Uniq_Fac) %>%
     filter(Anomaly==2) %>%
     st_as_sf(.,coords = c("Long1", "Lat1"), crs = "EPSG:4326") %>%
-    st_transform("EPSG:32615") #%>%
-    # self_sample_removal()
+    st_transform("EPSG:32615") %>%
+    self_sample_removal()
   
   ## Going to transform txdot roadway coordinates to WGS84 datum for now.
   txdot_joint_inventory <- st_transform(txdot_joint_inventory, "EPSG:32615")
@@ -411,7 +424,6 @@ inverted_cluster_means <- function(cluster_anomalies_object){
   ct_num <- 1
   
   houston_polygons <- cbind(houston_polygons,"ct_num" = as.factor(rep(ct_num,nrow(houston_polygons))))
-  
   
   for(k in 2:length(houston_lays)){
     ct_num <- k
@@ -433,24 +445,48 @@ inverted_cluster_means <- function(cluster_anomalies_object){
   cluster_output <- cluster_anomalies(labeled_anomalous_emissions, centers = 3, nstart = 200)
   
   clustered_anomalous_emissions <- cluster_output[[2]]
+  
+  
 }
+
+## Producing boxplots of clustered traffic attributes.
+
+{
+  clustered_aadt_df <- return_clustered_attributes(clustered_anomalous_emissions, txdot_joint_inventory,
+                                                      "ADT_CUR")
+  
+  clustered_trkaadtpct_df <- return_clustered_attributes(clustered_anomalous_emissions, txdot_joint_inventory,
+                                                      "TRK_AADT_PCT")
+  
+  p1 <- plot_clustered_roadway_features(clustered_aadt_df, title = NULL,
+                                        xlabel = "Cluster", ylabel = "AADT")
+  
+  p2 <- plot_clustered_roadway_features(clustered_trkaadtpct_df, title = NULL,
+                                        xlabel = "Cluster", ylabel = "AADT % Truck")
+  
+  ggarrange(p1,p2,labels = list("(a)","(b)"))
+  
+  save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Clustered_Traffic_Attributes.png"),width = 8, height = 4)
+}
+
 
 ## Producing visualizations of clustered results.
 {
-  visualize_cluster_results(plot_type = "fast_scatter",
-                            clustered_anomalous_emissions,
-                            "BC", "CO2",
-                            title = "Cluster Visualization After",
-                            xlabel = "BC",
-                            ylabel = "CO2")
-  
-  # visualize_cluster_results(plot_type = "box_plot",
+  # visualize_cluster_results(plot_type = "fast_scatter",
   #                           clustered_anomalous_emissions,
-  #                           title = "Clustered QOR Anomaly Boxplots",
-  #                           xlabel = "Cluster Label"
-  #                           )
-  # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_Anomaly_Cluster_Boxplot.png"),
-  #           height = 6, width =4)
+  #                           "BC", "CO2",
+  #                           title = "DBSCAN_V05",
+  #                           xlabel = "BC",
+  #                           ylabel = "CO2")
+  
+  visualize_cluster_results(plot_type = "box_plot",
+                            clustered_anomalous_emissions,
+                            title = "Clustered DSBCAN Anomaly Boxplots",
+                            xlabel = "Cluster Label"
+                            )
+  
+  save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Anomaly_Cluster_Boxplot.png"),
+            height = 6, width = 8.5)
   # 
   # visualize_cluster_results(plot_type = "nice_scatter",
   #                           clustered_anomalous_emissions,
@@ -491,38 +527,38 @@ inverted_cluster_means <- function(cluster_anomalies_object){
 
 
 {
-  census_tract_cluster_statplots(raw_anoms_output, "CO2_Cluster",
-                                 title = expression(paste("Total QOR ", CO[2], " Anomaly Detections by Census Tract")),
+  pt <- census_tract_cluster_statplots(raw_anoms_output, "CO2_Cluster",
+                                 title = expression(paste("Total DBSCAN ", CO[2], " Anomaly Detections by Census Tract")),
                                  ylabel = "Count")
   
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_Total_CO2_Anomaly_CT_Bar.png"),height = 4, width = 8)
   
   census_tract_cluster_statplots(raw_anoms_output, "BC_UFP_Cluster",
-                               title = "Total QOR BC/UFP Anomaly Detections by Census Tract",
+                               title = "Total DBSCAN BC/UFP Anomaly Detections by Census Tract",
                                ylabel = "Count")
   
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_Total_BC_UFP_Anomaly_CT_Bar.png"),height = 4, width = 8)
 
   census_tract_cluster_statplots(anoms_norm_by_anoms, "CO2_Cluster",
-                               title = expression(paste("QOR ",CO[2]," Anomalies Normalized by Census Tract Anomaly Total")),
+                               title = expression(paste("DBSCAN ",CO[2]," Anomalies Normalized by Census Tract Anomaly Total")),
                                ylabel = expression(paste("% ", CO[2], " Anomaly")))
 
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_CO2_Anomalies_Over_Anomalies_CT_Bar.png"),height = 4, width = 8)
   
   census_tract_cluster_statplots(anoms_norm_by_anoms, "Transition_Cluster",
-                               title = expression(paste("QOR Transition Anomalies Normalized by Census Tract Anomaly Total")),
+                               title = expression(paste("DBSCAN Transition Anomalies Normalized by Census Tract Anomaly Total")),
                                ylabel = "% Transition Anomaly")
   
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_Transition_Anomalies_Over_Anomalies_CT_Bar.png"),height = 4, width = 8)
   
   census_tract_cluster_statplots(anoms_norm_by_anoms, "BC_UFP_Cluster",
-                               title = expression(paste("QOR BC/UFP Anomalies Normalized by Census Tract Anomaly Total")),
+                               title = expression(paste("DBSCAN BC/UFP Anomalies Normalized by Census Tract Anomaly Total")),
                                ylabel = "% BC/UFP Anomaly")
   
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_BC_UFP_Anomalies_Over_Anomalies_CT_Bar.png"),height = 4, width = 8)
   
   census_tract_cluster_statplots(anoms_norm_by_total, "CO2_Cluster",
-                               title = expression(paste("QOR ", CO[2], " Anomalies Normalized by Census Tract Total Points")),
+                               title = expression(paste("DBSCAN ", CO[2], " Anomalies Normalized by Census Tract Total Points")),
                                ylabel = expression(paste("% ", CO[2], " Anomaly")))
   
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_CO2_Anomalies_Over_Total_CT_Bar.png"),height = 4, width = 8)
@@ -534,7 +570,7 @@ inverted_cluster_means <- function(cluster_anomalies_object){
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_BC_UFP_Anomalies_Over_Anomalies_CT_Bar.png"),height = 4, width = 8)
   
   census_tract_cluster_statplots(anoms_norm_by_total, "BC_UFP_Cluster",
-                               title = expression(paste("QOR BC/UFP Anomalies Normalized by Census Tract Total Points")),
+                               title = expression(paste("DBSCAN BC/UFP Anomalies Normalized by Census Tract Total Points")),
                                ylabel = "% BC/UFP Anomaly")
   
   # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_BC_UFP_Anomalies_Over_Total_CT_Bar.png"),height = 4, width = 8)

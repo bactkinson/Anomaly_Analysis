@@ -188,8 +188,8 @@ validate_labels_by_day <- function(daily_predicted_labeled_data,output_title = "
   
   print(
     output_tibble %>%
-      kable(caption = output_title) %>%
-      kable_classic_2()
+      kbl(caption =paste0('<b>',output_title,'</b>'),format = 'html') %>%
+      kable_styling(bootstrap_options = c("striped", "condensed","hover","responsive"), full_width = F)
   )
   
   

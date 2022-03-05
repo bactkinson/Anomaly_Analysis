@@ -5,11 +5,11 @@ require(tmap)
 current_dir <- getwd()
 txdot_inventory <- read.delim(paste0(getwd(),"/txdot_roadways/TxDOT_Roadway_Inventory.txt"),header=TRUE,
                               sep = "|") %>%
-  select(GID,CO,FRM_DFO, TO_DFO, DTRKVMT, TRK_AADT_PCT, PCT_SADT, PCT_CADT, AADT_TRUCKS, AADT_SINGLE_UNIT, AADT_COMBINATION) %>%
+  select(GID,CO,FRM_DFO, TO_DFO, TRK_AADT_PCT, AADT_TRUCKS, ADT_CUR, ADT_ADJ) %>%
   filter(CO==102) %>%
   group_by(GID) %>%
   mutate(Attribute_Weights = TO_DFO-FRM_DFO) %>%
-  summarise(across(c(DTRKVMT, TRK_AADT_PCT, PCT_SADT, PCT_CADT, AADT_TRUCKS, AADT_SINGLE_UNIT, AADT_COMBINATION), ~ weighted.mean(.x, Attribute_Weights)))
+  summarise(across(c(TRK_AADT_PCT, AADT_TRUCKS, ADT_CUR, ADT_ADJ), ~ weighted.mean(.x, Attribute_Weights)))
 
 # tt <- read.delim(paste0(getwd(),"/txdot_roadways/TxDOT_Roadway_Inventory.txt"),header=TRUE,
 #                               sep = "|")%>%
