@@ -54,9 +54,9 @@ find_the_knee_quantile <- function(poll_data,min_pts){
 }
 
 
-plot_knees <- function(poll_data,min_pts,directory,title, qt_check = F){
+plot_knees <- function(poll_data,min_pts,title,plot_bool = F,directory = getwd(), qt_check = F){
   
-  png(paste0(directory,title,".png"))
+  if (plot_bool) {png(paste0(directory,title,".png"))}
   
   NNs <- sort(kNNdist(poll_data,k=min_pts))
   
@@ -102,7 +102,9 @@ plot_knees <- function(poll_data,min_pts,directory,title, qt_check = F){
   
   if(qt_check) {abline(h=second_knee,lty = 2, col = "red")}
   
-  dev.off()
+  if(plot_bool) {dev.off()}
+  
+  return(list("NN_dists" = NNs, "Knee" = first_knee))
 }
 
 core_cluster_compactness <- function(dbscan_mod,poll_data){
@@ -175,36 +177,51 @@ return_anomalies <- function(windowed_data,min_pts_param){
 # }
 
 ## Knee plot for paper.
-{
-  selected_poll_data <- windowed_data[[50]] %>% dplyr::select(BC,CO2,NOx,UFP) %>% dplyr::mutate_all(scale)
-    
-  directory <- paste0(getwd(),"/Manuscript/Figs/")
-  
-  plot_knees(selected_poll_data, floor(0.03*nrow(selected_poll_data)), directory = directory, title = "Graphical Example of Eps Selection")
-}
+# {
+#   selected_poll_data <- windowed_data[[60]] %>% dplyr::select(BC,CO2,NOx,UFP) %>% dplyr::mutate_all(scale)
+#     
+#   directory <- paste0(getwd(),"/Manuscript/Figs/")
+#   
+#   knee_output <- plot_knees(selected_poll_data, floor(0.03*nrow(selected_poll_data)), directory = directory, title = "Graphical Example of Eps Selection")
+#   
+#   require(ggplot2)
+#   
+#   knee_tibble <- tibble("Order" = seq(1,length(knee_output$NN_dists),1),
+#                         "NN_Dists" = knee_output$NN_dists)
+#   
+#   ggplot(data = knee_tibble, aes(Order,NN_Dists))+
+#     geom_line(size = 1,linetype = "dashed")+
+#     geom_hline(yintercept = knee_output$Knee, color = "blue",size = 0.8)+
+#     labs(x = "Order", y = "Nearest Neighbor Distance", title = "Epsilon Selection")+
+#     annotate("text",x = 10000,y=knee_output$Knee+1.5, label = "Blue line is",fontface = 2)+
+#     annotate("text",x = 10000,y=knee_output$Knee+1, label = "selected epsilon", fontface = 2)+
+#     theme_classic()
+#   
+#   save_plot(paste0(getwd(),"/Manuscript/Figs/Epsilon_Selection_Example.png"),width = 6, height = 6)
+# }
 
 
 ## Running the main DBSCAN routine
-{
-  aggregate_list <- vector(mode="list", length = length(windowed_data))
-
-  for(j in 1:length(windowed_data)){
-    aggregate_list[[j]] <- list(windowed_data[[j]],floor(0.03*nrow(windowed_data[[j]])))
-  }
-
-  require(parallel)
-  
-  no_cores <- detectCores()-2
-  
-  cls <- makeCluster(no_cores)
-  
-  clusterExport(cls, varlist = c("find_the_knee", "return_anomalies", "aggregate_list","%>%"), envir = .GlobalEnv)
-  
-  dbOutput <- parLapply(cls,aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
-
-  stopCluster(cls)
-
-}
+# {
+#   aggregate_list <- vector(mode="list", length = length(windowed_data))
+# 
+#   for(j in 1:length(windowed_data)){
+#     aggregate_list[[j]] <- list(windowed_data[[j]],floor(0.03*nrow(windowed_data[[j]])))
+#   }
+# 
+#   require(parallel)
+#   
+#   no_cores <- detectCores()-2
+#   
+#   cls <- makeCluster(no_cores)
+#   
+#   clusterExport(cls, varlist = c("find_the_knee", "return_anomalies", "aggregate_list","%>%"), envir = .GlobalEnv)
+#   
+#   dbOutput <- parLapply(cls,aggregate_list,function(x) return_anomalies(x[[1]],x[[2]]))
+# 
+#   stopCluster(cls)
+# 
+# }
 
 
 ## Experimenting with approx parameter
@@ -235,34 +252,34 @@ return_anomalies <- function(windowed_data,min_pts_param){
 #   print(Sys.time()-start_time)
 # }
 
-{
-  list_to_tibble <- function(data_subset_list){
-  # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
-  # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
-  # return(output_tibble)
-
-    current_grp_index <- 1
-
-    output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
-
-    for(i in 2:length(data_subset_list)) {
-        current_grp_index <- i
-
-        current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
-
-        output_tibble <- rbind(output_tibble,current_tibble)
-      }
-    return(output_tibble)
-  }
-
-  db_tibble <- list_to_tibble(dbOutput)
-
-#   # anomalous_emissions <- db_tibble %>%
-#   #   filter(Anomaly==2) %>%
-#   #   select(LST,BC,CO2,NOx,UFP)
+# {
+#   list_to_tibble <- function(data_subset_list){
+#   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
+#   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
+#   # return(output_tibble)
 # 
-  write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V05.csv"))
-}
+#     current_grp_index <- 1
+# 
+#     output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
+# 
+#     for(i in 2:length(data_subset_list)) {
+#         current_grp_index <- i
+# 
+#         current_tibble <- cbind(data_subset_list[[i]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[i]])))
+# 
+#         output_tibble <- rbind(output_tibble,current_tibble)
+#       }
+#     return(output_tibble)
+#   }
+# 
+#   db_tibble <- list_to_tibble(dbOutput)
+# 
+# #   # anomalous_emissions <- db_tibble %>%
+# #   #   filter(Anomaly==2) %>%
+# #   #   select(LST,BC,CO2,NOx,UFP)
+# # 
+#   write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V05.csv"))
+# }
 
 
 
