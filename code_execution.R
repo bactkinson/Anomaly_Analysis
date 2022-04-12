@@ -2,7 +2,7 @@ source(paste0(getwd(),"/send_myself_mail.R"))
 start_time <- Sys.time()
 tryCatch(
   {
-    source(paste0(getwd(),"/DBSCAN_Direct_Analysis.R"))
+    source(paste0(getwd(),"/DBSCAN_External_Validation.R"))
     send_message_to_myself("Code execution complete",paste0("Code execution complete on GriffinLab. Took",
                                                             difftime(Sys.time(),start_time,units = "hours"),
                                                             "hours."))

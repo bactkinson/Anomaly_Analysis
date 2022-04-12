@@ -77,7 +77,15 @@ list_to_tibble <- function(data_subset_list){
     mutate(LST = as.POSIXct(as.character(LST), format = c("%m/%d/%Y %H:%M:%S"))) %>%
     drop_na() %>%
     mutate(NOx=NO+NO2, .keep = "unused")
-
+  
+  if(F){
+    differences <- difftime(valid_df$LST,lag(valid_df$LST),units = c("mins"))
+    length(which(differences>15))
+    length(which(differences>20))
+    length(which(differences>30))
+    length(which(differences>60))
+  }
+  
   if(T) {
     c1 <- which(valid_df$Index==1)
     c2 <- which(valid_df$Index==2)
