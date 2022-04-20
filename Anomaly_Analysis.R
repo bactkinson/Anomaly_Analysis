@@ -73,6 +73,21 @@ list_to_tibble <- function(data_subset_list){
   ## Interpolate missing values
   splined_df <- zoo::na.spline(poll_df, method='monoH.FC', maxgap=6, na.rm=F)
   
+  if(T){
+    splined_bc <- ifelse(!is.na(splined_df[,1]) & is.na(poll_df$BC),1,0)
+    
+    splined_co2 <- ifelse(!is.na(splined_df[,2]) & is.na(poll_df$CO2),1,0)
+    
+    splined_no <- ifelse(!is.na(splined_df[,3]) & is.na(poll_df$NO),1,0)
+    
+    splined_no2 <- ifelse(!is.na(splined_df[,4]) & is.na(poll_df$NO2),1,0)
+    
+    splined_ufp <- ifelse(!is.na(splined_df[,7]) & is.na(poll_df$UFP),1,0)
+    
+    splined_df <- cbind(splined_df,splined_bc,splined_co2,splined_no,splined_no2,splined_ufp)
+  }
+  
+  
   valid_df <- cbind(loc_df,splined_df) %>%
     mutate(LST = as.POSIXct(as.character(LST), format = c("%m/%d/%Y %H:%M:%S"))) %>%
     drop_na() %>%
@@ -104,6 +119,136 @@ list_to_tibble <- function(data_subset_list){
   lens <- unlist(lapply(valid_groups, function(x) return(nrow(x))),use.names = F)
   
   windowed_data <- valid_groups[lens>600] %>% as.list()
+}
+
+## Create tibble from splined_indicators
+{
+  splined_indicators <- list_to_tibble(windowed_data)
+  
+  ## Go through shapefile processing.
+  
+  calculate_euclidean_distance <- function(geo_1,geo_2){
+  ## For each entry in geo_1, geo_2
+  ## Perform element-wise euclidean distance calculation and return result
+  ## In vector
+  
+  ## To do this
+  ## Unlist geo_1 entry
+  ## Unlist geo_2 entry
+  ## Calculate delta x, delta y 
+  ## Square delta x, delta y
+  ## Add them together
+  ## Then take square root.
+  
+  euclid_distance <- function(x){
+    c1 <- c(x[1],x[2])
+    c2 <- c(x[3],x[4])
+    diffs <- c1-c2
+    return(sqrt(sum(diffs^2)))
+    
+  }
+  
+  print("Processing distance")
+  
+  coord_rows <- matrix(,nrow = length(geo_1),ncol=4)
+  
+  geo_coordinates_1 <- unlist(geo_1)
+  
+  geo_coordinates_2 <- unlist(geo_2)
+  
+  odds <- rep(c(TRUE,FALSE),length(geo_1))
+  
+  coord_rows[,1] <- geo_coordinates_1[odds]
+  
+  coord_rows[,2] <- geo_coordinates_1[!odds]
+  
+  coord_rows[,3] <- geo_coordinates_2[odds]
+  
+  coord_rows[,4] <- geo_coordinates_2[!odds]
+  
+  print(coord_rows)
+  
+  dists <- apply(coord_rows,1,function(x) euclid_distance(x))
+  # for(i in seq_along(geo_1)){
+  #   print(i)
+  #   
+  #   coord_1 <- unlist(geo_1[i])
+  #   
+  #   coord_2 <- unlist(geo_2[i])
+  #   
+  #   deltas <- coord_1-coord_2
+  #   
+  #   dists[i] <- sqrt(sum(deltas^2))
+  # }
+  # 
+  print("Distance Processing Completed")
+  return(dists)
+  
+  }
+  
+  shapefile_processing <- function(sf_df){
+  # require(data.table)
+  shp_points <- st_read(paste0(getwd(),"/Houston_Shape_Files/Houston_10mpts_seg50_90_final.shp"),
+                                  query = 'SELECT selfsample, Longitude, Latitude, MTFCC FROM Houston_10mpts_seg50_90_final')
+  
+  nearest_points <- st_nearest_feature(sf_df, shp_points)
+  
+  sf_df_removed <- cbind(sf_df, "Self_Sample" = shp_points$selfsample[nearest_points],
+                         "Road_Class"=shp_points$MTFCC[nearest_points]) %>%
+    dplyr::mutate(NN_Dist=calculate_euclidean_distance(.$geometry,shp_points$geometry[nearest_points]))%>%
+    filter(Self_Sample==0) %>%
+    dplyr::filter(NN_Dist<30) %>%
+    dplyr::filter(Road_Class=="S1100"|Road_Class=="S1200"|Road_Class=="S1400"|Road_Class=="S1630"|Road_Class=="S1640"|Road_Class=="S1740")%>%
+    dplyr::select(-Self_Sample) %>%
+    dplyr::select(-NN_Dist)
+
+  return(sf_df_removed)
+}
+  
+  final_splined_indicators <- splined_indicators %>% 
+    dplyr::select(BC,CO2,NOx,UFP,splined_bc,splined_co2,splined_no,splined_no2,splined_ufp,Lat1,Long1,LST) %>% 
+    st_as_sf(.,coords = c("Long1", "Lat1"), crs = "EPSG:4326") %>%
+    st_transform("EPSG:32615") %>%
+    shapefile_processing()
+  
+  if(T){
+    no_bc <- final_splined_indicators %>%
+      dplyr::filter(splined_bc==1) %>%
+      nrow()
+    
+    print(no_bc)
+    
+    no_no <- final_splined_indicators %>%
+      dplyr::filter(splined_no==1) %>%
+      nrow()
+    
+    print(no_no)
+    
+    no_no2 <- final_splined_indicators %>%
+      dplyr::filter(splined_no2==1) %>%
+      nrow()
+    
+    print(no_no2)
+    
+    no_co2 <- final_splined_indicators %>%
+      dplyr::filter(splined_co2==1) %>%
+      nrow()
+    
+    print(no_co2)
+    
+    no_ufp <- final_splined_indicators %>%
+      dplyr::filter(splined_ufp==1) %>%
+      nrow()
+    
+    print(no_ufp)
+    
+    no_nox <- final_splined_indicators %>%
+      dplyr::filter(splined_no==1 | splined_no2==1) %>%
+      nrow()
+    
+    print(no_nox)
+
+  }
 }
 
 ## Saving data to send to Kathy.

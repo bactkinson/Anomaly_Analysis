@@ -53,7 +53,6 @@ find_the_knee_quantile <- function(poll_data,min_pts){
   return(tt[length(tt)])
 }
 
-
 plot_knees <- function(poll_data,min_pts,title,plot_bool = F,directory = getwd(), qt_check = F){
   
   if (plot_bool) {png(paste0(directory,title,".png"))}
@@ -108,6 +107,7 @@ plot_knees <- function(poll_data,min_pts,title,plot_bool = F,directory = getwd()
 }
 
 core_cluster_compactness <- function(dbscan_mod,poll_data){
+  
   clustering_results <- dbscan_mod$cluster
   
   core_data <- poll_data[clustering_results==1,]
@@ -125,7 +125,7 @@ return_anomalies <- function(windowed_data,min_pts_param){
   poll_data <- windowed_data %>%
       dplyr::select(BC,CO2,NOx,UFP) %>%
       dplyr::mutate_all(scale)
-
+  
   current_eps <- find_the_knee(poll_data,min_pts = min_pts_param)
   
   db_clust <- dbscan::dbscan(poll_data,minPts = min_pts_param,eps = current_eps,borderPoints = FALSE)
@@ -222,8 +222,6 @@ return_anomalies <- function(windowed_data,min_pts_param){
 #   stopCluster(cls)
 # 
 # }
-
-
 ## Experimenting with approx parameter
 # {
 #   start_time <- Sys.time()
@@ -280,10 +278,6 @@ return_anomalies <- function(windowed_data,min_pts_param){
 # # 
 #   write.csv(db_tibble,paste0(current_dir,"/Anomalous_Emissions_Results/Labeled_Emissions_DBSCAN_V05.csv"))
 # }
-
-
-
-
 
 ## Finding the knee sensitivity analysis.
 # {

@@ -41,16 +41,16 @@ generate_poly_map <- function(polygon_sf_df,fill_by=NA,bins = NA,legend_title=NA
     # colors_to_use <- rev(RColorBrewer::brewer.pal(length(bins),"RdBu"))
     # pal <- colorBin(colors_to_use,domain = selected_values, bins = bins)
     
-    pal <- colorBin("YlOrRd",domain = selected_values, bins = bins)
+    pal <- colorBin("Reds",domain = selected_values, bins = bins)
     
     m <- leaflet(polygon_sf_df) %>%
-      addProviderTiles(providers$Stamen.TonerBackground) %>%
+      addProviderTiles(providers$Wikimedia) %>%
       addPolygons(fillColor = ~pal(selected_values),
                   weight = 2,
                   opacity = 1,
                   color = "black",
                   fillOpacity = 0.7) %>%
-      addStaticLabels(.,label = polygon_sf_df$Name, style = list("color" = "black","font-weight" = "bold","font-size"="14px")) %>%
+      addStaticLabels(.,label = polygon_sf_df$Name, style = list("color" = "black","font-weight" = "bold","font-size"="16px")) %>%
       addLegend(pal=pal,values = selected_values, opacity = 0.7, title = legend_title, position = "bottomright")
     
     return(m)
@@ -1992,7 +1992,7 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
   bootstrap_results <- vector(mode = "list",length = length(total_all_roads_list))
   
   for(k in 1:length(total_all_roads_list)){
-    bootstrap_results[[k]] <- generate_synthetic_distributions(anomaly_all_roads_list[k],total_all_roads_list[k],bootstrap_iterations = 100)
+    bootstrap_results[[k]] <- generate_synthetic_distributions(anomaly_all_roads_list[k],total_all_roads_list[k],bootstrap_iterations = 500)
   }
   
 }
@@ -2002,7 +2002,7 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
   load(file = paste0(getwd(),"/bootstrapped_cts.RData"))
   
   ## Create tibble from bootstrapped results.
-  bootstrapped_df <- list_to_tibble(bootstrap_results) %>%
+  bootstrapped_df <- list_to_tibble(bootstrap_results[1:18]) %>%
     dplyr::select(-Uniq_Fac)
   
   ## Create barplot.

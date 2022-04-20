@@ -1,6 +1,8 @@
 ## Script which contains functions to validate anomaly detection labels.
 require(caret)
 require(tidyverse)
+require(data.table)
+
 list_to_tibble <- function(data_subset_list){
   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
@@ -503,14 +505,35 @@ plot_labeled_anomaly_scatter <- function(labeled_day,Var1,Var2,xlabel = NULL,yla
   }
 }
 
-validation_labels[19]
-
-validation_subset <- valid_data_windows[[19]]
-
-data_to_plot <- validation_subset %>%
-  dplyr::mutate(H = lubridate::hour(LST)) %>%
-  dplyr::filter(H>12)
-
-plot_time_series_anomalies(data_to_plot, polls_to_pull = c("BC","CO2","NOx","UFP"),
-                           title = "Day 215 Subset",
-                           save_graph = F)
+## Creating datasets used in validation testing for upload to Zenodo.
+{
+  validation_labels <- c(100,103,109,118,123,124,134,150,166,168,171,181,187,194,206,207,209,21,215,218,22,248,249,268,271,3,36,59,88,90)
+  
+  db_to_be_validated <- db_grouped_anomalies[validation_labels]
+  
+  db_to_be_validated_data <- list_to_tibble(db_to_be_validated) %>%
+    dplyr::select(-c(V1,O3,PM25))
+  
+  write.csv(db_to_be_validated_data,file = paste0(getwd(),"/Anomalous_Emissions_Results/DB_To_Be_Validated.csv"))
+  
+  qor_to_be_validated <- qor_grouped_anomalies[validation_labels]
+  
+  qor_to_be_validated_data <- list_to_tibble(qor_to_be_validated) %>%
+    dplyr::select(-c(V1,O3,PM25))
+  
+  write.csv(qor_to_be_validated_data,file = paste0(getwd(),"/Anomalous_Emissions_Results/QOR_To_Be_Validated.csv"))
+  
+  qand_to_be_validated <- qand_grouped_anomalies[validation_labels]
+  
+  qand_to_be_validated_data <- list_to_tibble(qand_to_be_validated) %>%
+    dplyr::select(-c(V1,O3,PM25))
+  
+  write.csv(qand_to_be_validated_data,file = paste0(getwd(),"/Anomalous_Emissions_Results/QAND_To_Be_Validated.csv"))
+  
+  drew_to_be_validated <- drew_grouped_anomalies[validation_labels]
+  
+  drew_to_be_validated_data <- list_to_tibble(drew_to_be_validated) %>%
+    dplyr::select(-c(V1,O3,PM25))
+  
+  write.csv(drew_to_be_validated_data,file = paste0(getwd(),"/Anomalous_Emissions_Results/Drew_To_Be_Validated.csv"))
+}
