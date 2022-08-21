@@ -279,7 +279,7 @@ list_to_tibble <- function(data_subset_list){
 
 ## Create validation set.
 {
-  load(paste0(current_dir,"/windowed_data.RData")) %>% as.list()
+  load(paste0(getwd(),"/windowed_data.RData")) %>% as.list()
   
   valid_label_files <- list.files(path=paste0(getwd(),"/Manually_Flagged_Anomalies/"))
   
