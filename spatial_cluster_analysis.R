@@ -2,6 +2,8 @@ require(sf)
 require(tidyverse)
 require(ggpubr)
 require(data.table)
+require(htmlwidgets)
+require(webshot)
 ## FUNCTIONS ##
 list_to_tibble <- function(data_subset_list){
   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
@@ -28,6 +30,12 @@ generate_poly_map <- function(polygon_sf_df,fill_by=NA,bins = NA,legend_title=NA
   require(leafem)
   require(leaflet)
   
+  north_arrow <- makeIcon(
+    iconUrl = paste0(getwd(),"/Manuscript/Figs/North_Arrow2.png"),
+    iconWidth = 30, 
+    iconHeight = 90
+  )
+  
   if(is.na(fill_by)){
     m <- leaflet(polygon_sf_df) %>%
       addProviderTiles("OpenStreetMap") %>%
@@ -42,16 +50,23 @@ generate_poly_map <- function(polygon_sf_df,fill_by=NA,bins = NA,legend_title=NA
     # pal <- colorBin(colors_to_use,domain = selected_values, bins = bins)
     
     pal <- colorBin("Reds",domain = selected_values, bins = bins)
-    
-    m <- leaflet(polygon_sf_df) %>%
+   
+    m <- leaflet(polygon_sf_df, options = leafletOptions(zoomControl = FALSE)) %>%
       addProviderTiles(providers$Wikimedia) %>%
+      addMiniMap(tiles = providers$Wikimedia,
+                 position = 'topright',
+                 zoomLevelFixed = 5,
+                 width = 150, height = 150,
+                 toggleDisplay = FALSE) %>%
       addPolygons(fillColor = ~pal(selected_values),
                   weight = 2,
                   opacity = 1,
                   color = "black",
                   fillOpacity = 0.7) %>%
       addStaticLabels(.,label = polygon_sf_df$Name, style = list("color" = "black","font-weight" = "bold","font-size"="16px")) %>%
-      addLegend(pal=pal,values = selected_values, opacity = 0.7, title = legend_title, position = "bottomright")
+      addLegend(pal=pal,values = selected_values, opacity = 0.7, title = legend_title, position = "bottomright") %>%
+      addMarkers(lng = c(-95.55),lat = c(29.61) ,icon = north_arrow) 
+      
     
     return(m)
   }
@@ -463,8 +478,8 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
                 color="Cluster_Label",
                 shape = 19,
                 palette = colorRampPalette(c(mnsl('5B 8/8'),mnsl('5YR 7/12')))(no_colors),
-                xlab=xlabel,
-                ylab = ylabel,
+                # xlab = xlabel,
+                # ylab = ylabel,
                 repel = TRUE,
                 title=title,
                 legend = "right",
@@ -519,7 +534,7 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
       labs(x = xlabel, title=title)+
       theme(strip.background = element_rect(fill = munsell::mnsl('5BG 9/8')))
 
-    poll_labeller <- as_labeller(c(BC="BC (ng/m^3)",CO2="CO[2] (ppm)", NOx = "NO[x] (ppb)",UFP="UFP (p/cc)"),
+    poll_labeller <- as_labeller(c(BC="BC (ng m^-3)",CO2="CO[2] (ppm)", NOx = "NO[x] (ppb)",UFP="UFP (p/cc)"),
                                  default = label_parsed)
 
     plt <-   bp + facet_wrap(vars(Pollutant),nrow = 2,ncol = 2,scales = "free",
@@ -540,13 +555,13 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
       geom_boxplot(aes(Cluster_Label,BC),fill=munsell::mnsl("5R 6/14"))+
       scale_y_continuous(limits = c(-7500,20000),labels = function(x) format(x,scientific = TRUE))+
       theme_classic()+
-      labs(x=xlabel,y=bquote("BC (ng/"~m^3*")"))+
+      labs(x=xlabel,y=bquote("BC (ng"~m^-3*")"))+
       theme(panel.background = element_rect(colour="red",size = 1.5),
             axis.line.y = element_blank())
     
     co2_bp_inset <- ggplot(data=zoomed_polls)+
       geom_boxplot(aes(Cluster_Label,CO2),fill=munsell::mnsl("5R 6/14"))+
-      scale_y_continuous(limits = c(380,920))+
+      scale_y_continuous(limits = c(360,920))+
       theme_classic()+
       labs(x=xlabel,y=bquote(""~CO[2]*" (ppm)"))+
       theme(panel.background = element_rect(colour = "red",size = 1.5),
@@ -569,7 +584,7 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
       theme(axis.line.x = element_blank(),axis.text.x = element_blank(),
             axis.ticks.x = element_blank(),axis.title.x = element_blank()
             )+
-      labs(y=bquote("BC (ng/"~m^3*")"))+
+      labs(y=bquote("BC (ng"~m^-3*")"))+
       annotate("rect",xmin = 0.5, xmax = 3.5,ymin = -7500,ymax = 20000,alpha = 0,colour = "red",size=1)
 
     co2_p <- ggplot(data=tibble_to_plot,aes(Cluster_Label,CO2))+
@@ -579,7 +594,7 @@ visualize_cluster_results <- function(plot_type,labeled_emissions_results, Var1 
             axis.ticks.x = element_blank(),axis.title.x = element_blank()
             )+
       labs(y=bquote(""~CO[2]*" (ppm)"))+
-      annotate("rect",xmin = 0.5,xmax = 3.5,ymin = 380,ymax = 920,alpha = 0, colour = "red",size=1)
+      annotate("rect",xmin = 0.5,xmax = 3.5,ymin = 360,ymax = 920,alpha = 0, colour = "red",size=1)
 
     nox_p <- ggplot(data=tibble_to_plot,aes(Cluster_Label,NOx))+
       geom_boxplot(fill=munsell::mnsl("5R 6/14"))+
@@ -1069,7 +1084,6 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
 
 ## Data preprocessing - loading the txdot shapefile
 {
-  
   load(paste0(getwd(),"/txdot_roadways/txdot_joint_inventory.RData"))  
   
   ## Going to transform txdot roadway coordinates to WGS84 datum for now.
@@ -1086,7 +1100,7 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
   
   houston_polygons <- cbind(houston_polygons,"ct_num" = as.factor(rep(ct_num,nrow(houston_polygons))))
   
-  for(k in 2:length(houston_lays)){
+  for(k in 2:length(houston_lays$name)){
     ct_num <- k
     
     temp_polygons <- st_read(paste0(getwd(),"/mobile_polygons_20m_buffer.kml"),layer = houston_lays$name[k]) %>%
@@ -1099,9 +1113,7 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
   
   houston_polygons <- key_conversion(houston_polygons) %>%
     dplyr::mutate(Centroid=st_centroid(geometry))
-  
-  
-  
+
 }
 
 
@@ -1132,31 +1144,47 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
       dplyr::filter(DayOfWeek!=1 | DayOfWeek!=7) %>%
       dplyr::select(-DayOfWeek)
   }
+  
+  ## Calculate number of anomalies with each pollutant below their respective 5th quantiles
+  if(F){
+    nox_fifth <- quantile(db_anomalous_emissions$NOx,0.05)
+    co2_fifth <- quantile(db_anomalous_emissions$CO2,0.05)
+    ufp_fifth <- quantile(db_anomalous_emissions$UFP,0.05)
+    bc_fifth <- quantile(db_anomalous_emissions$BC,0.05)
+    
+  num_low_lying <- length(which(db_anomalous_emissions$BC<bc_fifth &
+                           db_anomalous_emissions$CO2<co2_fifth &
+                           db_anomalous_emissions$NOx<nox_fifth &
+                           db_anomalous_emissions$UFP<ufp_fifth))
+  
+  print(num_low_lying/nrow(db_anomalous_emissions)*100)
+    
+  }
 }
 
 ## Load in data - QOR preprocessing
 {
-  qor_labeled_emissions <- fread(paste0(getwd(),
-                                         "/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv")) %>%
-    select(BC,CO2,NOx,UFP,Lat1,Long1,Anomaly,Uniq_Fac,LST) %>%
-    st_as_sf(.,coords = c("Long1", "Lat1"), crs = "EPSG:4326") %>%
-    st_transform("EPSG:32615") %>%
-    shapefile_processing()
-  
-  qor_anomalous_emissions <- qor_labeled_emissions %>%
-    filter(Anomaly==2) 
-  
-  if(F){
-    qor_labeled_emissions <- qor_labeled_emissions %>%
-      dplyr::mutate(DayOfWeek=lubridate::wday(LST)) %>%
-      dplyr::filter(DayOfWeek!=1 | DayOfWeek!=7) %>%
-      dplyr::select(-DayOfWeek)
-    
-    qor_anomalous_emissions <- qor_anomalous_emissions %>%
-      dplyr::mutate(DayOfWeek=lubridate::wday(LST)) %>%
-      dplyr::filter(DayOfWeek!=1 | DayOfWeek!=7) %>%
-      dplyr::select(-DayOfWeek)
-  }
+  # qor_labeled_emissions <- fread(paste0(getwd(),
+  #                                        "/Anomalous_Emissions_Results/Labeled_Emissions_Quantile_OR.csv")) %>%
+  #   select(BC,CO2,NOx,UFP,Lat1,Long1,Anomaly,Uniq_Fac,LST) %>%
+  #   st_as_sf(.,coords = c("Long1", "Lat1"), crs = "EPSG:4326") %>%
+  #   st_transform("EPSG:32615") %>%
+  #   shapefile_processing()
+  # 
+  # qor_anomalous_emissions <- qor_labeled_emissions %>%
+  #   filter(Anomaly==2) 
+  # 
+  # if(F){
+  #   qor_labeled_emissions <- qor_labeled_emissions %>%
+  #     dplyr::mutate(DayOfWeek=lubridate::wday(LST)) %>%
+  #     dplyr::filter(DayOfWeek!=1 | DayOfWeek!=7) %>%
+  #     dplyr::select(-DayOfWeek)
+  #   
+  #   qor_anomalous_emissions <- qor_anomalous_emissions %>%
+  #     dplyr::mutate(DayOfWeek=lubridate::wday(LST)) %>%
+  #     dplyr::filter(DayOfWeek!=1 | DayOfWeek!=7) %>%
+  #     dplyr::select(-DayOfWeek)
+  # }
 }
 
 ## Performing the clustering - DBSCAN
@@ -1165,8 +1193,8 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
 
   db_cluster_output <- cluster_anomalies(db_anomalous_emissions, centers = 3, nstart = 200)
 
-  db_clust_anoms <- db_cluster_output[[2]] 
-  
+  db_clust_anoms <- db_cluster_output[[2]]
+
   if(F){
     db_clust_anoms <- db_clust_anoms %>%
       dplyr::mutate(DayOfWeek=lubridate::wday(LST)) %>%
@@ -1180,13 +1208,13 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
 ## Performing the clustering - QOR
 
 {
-  set.seed(10)
-  
-  qor_cluster_output <- cluster_anomalies(qor_anomalous_emissions, centers = 3, nstart = 200)
-
-  qor_clust_anoms <- qor_cluster_output[[2]]
-  
-  inverted_cluster_means(qor_cluster_output)
+  # set.seed(10)
+  # 
+  # qor_cluster_output <- cluster_anomalies(qor_anomalous_emissions, centers = 3, nstart = 200)
+  # 
+  # qor_clust_anoms <- qor_cluster_output[[2]]
+  # 
+  # inverted_cluster_means(qor_cluster_output)
 }
 
 ## Visualizing DBSCAN anomaly clustering results - projection onto principal component axes,
@@ -1194,56 +1222,55 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
 {
   dbs_scatter <- visualize_cluster_results("nice_scatter", db_clust_anoms,Var1 = "BC",Var2 = "CO2",
                             title = "K-means visualized for all DBSCAN labeled anomalies",
-                            xlabel = expression(paste("BC(ng/",m^3,")")),
+                            xlabel = expression(paste("BC(ng",m^3,")")),
                             ylabel = expression(paste(CO[2],"(ppm)")))
 
-  save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Kmeans_Clustered_Anomalies.png"), width =6, height = 6)
+  save_plot(paste0(getwd(),"/AMT_Manuscript/Final_Figures/Figure_2.png"), width =6, height = 6)
 
-  dbs_pca_clust <- visualize_cluster_results(plot_type = "PCA_Clust",db_clust_anoms,
-                                  title = "Visualizing DBSCAN Anomalies on Principal Axes")
+  # dbs_pca_clust <- visualize_cluster_results(plot_type = "PCA_Clust",db_clust_anoms,
+  #                                 title = "Visualizing DBSCAN Anomalies on Principal Axes")
+  # 
+  # print(dbs_pca_clust)
 
-  print(dbs_pca_clust)
+  # save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Kmeans_Two_Principal_Axes.png"), width = 8, height = 8)
   
-  dbs_bxp <- visualize_cluster_results(plot_type = "box_plot_with_inset",
-                                  db_clust_anoms,
-                                  title = "Clustered DBSCAN Anomaly Boxplots",
-                                  xlabel = "Cluster",
-                                  ylabel = "Measurement")
-
-  save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Kmeans_Two_Principal_Axes.png"), width = 8, height = 8)
-  
-  print(dbs_bxp)
-  
-  grid::grid.draw(dbs_bxp)
-  
-  save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Anomaly_Cluster_Boxplot.png"), width = 8, height = 8,plot = dbs_bxp)
-  
-  if(T){
-    polls_to_rotate <- db_clust_anoms %>% 
-      as_tibble() %>%
-      dplyr::select(BC,CO2,NOx,UFP) 
-    
-    psych::principal(polls_to_rotate,nfactors = 2,rotate = "varimax")
-  }
+  # dbs_bxp <- visualize_cluster_results(plot_type = "box_plot_with_inset",
+  #                                 db_clust_anoms,
+  #                                 title = "Clustered DBSCAN Anomaly Boxplots",
+  #                                 xlabel = "Cluster",
+  #                                 ylabel = "Measurement")
+  # 
+  # grid::grid.draw(dbs_bxp)
+  # 
+  # save_plot(paste0(getwd(),"/AMT_Manuscript/Final_Figures/Figure_4.png"), 
+  #           width = 8, height = 8, plot = dbs_bxp)
+  # 
+  # if(T){
+  #   polls_to_rotate <- db_clust_anoms %>%
+  #     as_tibble() %>%
+  #     dplyr::select(BC,CO2,NOx,UFP)
+  # 
+  #   psych::principal(polls_to_rotate,nfactors = 2,rotate = "varimax")
+  # }
 }
 
 ## Producing boxplots of clustered traffic attributes for DBSCAN anomalies
 {
-  clustered_aadt_df <- return_clustered_attributes(db_clust_anoms, txdot_joint_inventory,
-                                                      "ADT_CUR")
-
-  clustered_trkaadtpct_df <- return_clustered_attributes(db_clust_anoms, txdot_joint_inventory,
-                                                      "TRK_AADT_PCT")
-
-  p1 <- plot_clustered_roadway_features(clustered_aadt_df, title = NULL,
-                                        xlabel = "Cluster", ylabel = "AADT")
-
-  p2 <- plot_clustered_roadway_features(clustered_trkaadtpct_df, title = NULL,
-                                        xlabel = "Cluster", ylabel = "AADT % Truck")
-
-  ggarrange(p1,p2,labels = list("(a)","(b)"))
-
-  save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Clustered_Traffic_Attributes.png"),width = 8, height = 4)
+  # clustered_aadt_df <- return_clustered_attributes(db_clust_anoms, txdot_joint_inventory,
+  #                                                     "ADT_CUR")
+  # 
+  # clustered_trkaadtpct_df <- return_clustered_attributes(db_clust_anoms, txdot_joint_inventory,
+  #                                                     "TRK_AADT_PCT")
+  # 
+  # p1 <- plot_clustered_roadway_features(clustered_aadt_df, title = NULL,
+  #                                       xlabel = "Cluster", ylabel = "AADT")
+  # 
+  # p2 <- plot_clustered_roadway_features(clustered_trkaadtpct_df, title = NULL,
+  #                                       xlabel = "Cluster", ylabel = "AADT % Truck")
+  # 
+  # ggarrange(p1,p2,labels = list("(a)","(b)"))
+  # 
+  # save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Clustered_Traffic_Attributes.png"),width = 8, height = 4)
 }
 
 
@@ -1289,34 +1316,34 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
 
 ## Assigning DBSCAN anomaly type distributions by census tract.
 {
-  total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
-  
-  db_anoms_output <- assign_anomalies_to_polygons(db_clust_anoms,houston_polygons)
-  
-  print("DBSCAN anomalies output computed")
-  # load(file=paste0(getwd(),"/db_anoms_output.RData"))
-  
-  # db_anoms_output_total <- db_anoms_output$Raw_Anomaly_Output
+  # total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
   # 
-  # db_anoms_norm_by_anoms <- db_anoms_output$Raw_Anomaly_Output %>% norm_by_anoms(.)
+  # db_anoms_output <- assign_anomalies_to_polygons(db_clust_anoms,houston_polygons)
   # 
-  # db_anoms_norm_by_total <- norm_by_total(db_anoms_output$Raw_Anomaly_Output, total_polygon_points$Total_Points)
-  
-  # db_anoms_norm_by_total %>%
-  #   mutate_at(2:4,~ round(.,2))%>%
-  #   kableExtra::kbl() %>%
-  #   kableExtra::kable_classic_2(bootstrap_options = c("condensed"),full_width = F) %>%
-  #   kableExtra::row_spec(c(18,26), bold = T, background = "red") %>%
-  #   kableExtra::column_spec(1:3, bold = F, background = "white")
-  
-  total_output <- return_total_number_inpolygon(db_labeled_emissions,houston_polygons)
+  # print("DBSCAN anomalies output computed")
+  # # load(file=paste0(getwd(),"/db_anoms_output.RData"))
+  # 
+  # # db_anoms_output_total <- db_anoms_output$Raw_Anomaly_Output
+  # # 
+  # # db_anoms_norm_by_anoms <- db_anoms_output$Raw_Anomaly_Output %>% norm_by_anoms(.)
+  # # 
+  # # db_anoms_norm_by_total <- norm_by_total(db_anoms_output$Raw_Anomaly_Output, total_polygon_points$Total_Points)
+  # 
+  # # db_anoms_norm_by_total %>%
+  # #   mutate_at(2:4,~ round(.,2))%>%
+  # #   kableExtra::kbl() %>%
+  # #   kableExtra::kable_classic_2(bootstrap_options = c("condensed"),full_width = F) %>%
+  # #   kableExtra::row_spec(c(18,26), bold = T, background = "red") %>%
+  # #   kableExtra::column_spec(1:3, bold = F, background = "white")
+  # 
+  # total_output <- return_total_number_inpolygon(db_labeled_emissions,houston_polygons)
 }
 
 ## Rescaling temporal effects for DBSCAN anomalies. All CTs
 {
   load(paste0(getwd(),"/db_anoms_output.RData"))  
   
-  load(paste0(getwd(),"/t_points_by_poly.RData"))  
+  load(paste0(getwd(),"/t_output.RData"))  
   
   rescaled_values <- normalize_ct(db_anoms_output$Points_In_Polygon,t_points_by_poly$Intersecting_List)  
   
@@ -1463,173 +1490,173 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
   # ggarrange(p3,p4,nrow = 2)
   # 
   # 
-  p5 <- census_tract_cluster_statplots(raw_anoms_over_total, "CO2_Cluster",
-                               title = expression(paste("Normalized DBSCAN ", CO[2], " Anomalies")),
-                               ylabel = expression(paste("% ", CO[2])))
-  
-  p6 <- census_tract_cluster_statplots(raw_anoms_over_total, "BC_UFP_Cluster",
-                               title = expression(paste("Normalized BC/UFP Anomalies")),
-                               ylabel = expression(paste("% BC/UFP")))
-  
-  ggarrange(p5,p6,nrow=2)
-  
-  save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Raw_Anomaly_Over_Total.png"),height = 11, width = 8)
+  # p5 <- census_tract_cluster_statplots(raw_anoms_over_total, "CO2_Cluster",
+  #                              title = expression(paste("Normalized DBSCAN ", CO[2], " Anomalies")),
+  #                              ylabel = expression(paste("% ", CO[2])))
+  # 
+  # p6 <- census_tract_cluster_statplots(raw_anoms_over_total, "BC_UFP_Cluster",
+  #                              title = expression(paste("Normalized BC/UFP Anomalies")),
+  #                              ylabel = expression(paste("% BC/UFP")))
+  # 
+  # ggarrange(p5,p6,nrow=2)
+  # 
+  # save_plot(paste0(getwd(),"/Manuscript/Figs/DBSCAN_Raw_Anomaly_Over_Total.png"),height = 11, width = 8)
 }
 
 ## Comparing CTs from reweighted schemes, original schemes with trimmed measurements
 ## Probability of selecting anomaly type in given census tract.
 {
-  rescaled_anomaly_by_total_total_removed <- rescaled_anomaly_by_total %>%
-    dplyr::select(-c(Total_Measurements))
-  
-  combined_totals <- rbind(trimmed_anoms_by_total,rescaled_anomaly_by_total_total_removed) %>%
-    dplyr::mutate(IsScaled=ifelse(as.numeric(rownames(.))<20,"Unscaled","Scaled"))
-  
-  bc_effects <- census_tract_cluster_statplots(combined_totals,"BC_UFP_Cluster",
-                                       title = expression(paste("Effects of Scaling on Normalized DBSCAN BC/UFP Anomalies")),
-                                       ylabel = expression(paste("% BC/UFP")),
-                                       fill_color = c(munsell::mnsl("5G 6/8"),munsell::mnsl("5YR 7/12")),
-                                       bar_groups = "IsScaled")
-  
-  save_plot(paste0(getwd(),"/Manuscript/Figs/Effects_Of_Scaling_DBSCAN_BC_UFP_Over_Total.png"),width = 8,height = 5.5)
-   
-  co2_effects <- census_tract_cluster_statplots(combined_totals,"CO2_Cluster",
-                                       title = expression(paste("Effects of Scaling on Normalized DBSCAN ", CO[2], " Anomalies")),
-                                       ylabel = expression(paste("% ",CO[2])),
-                                       fill_color = c(munsell::mnsl("5G 6/8"),munsell::mnsl("5YR 7/12")),
-                                       bar_groups = "IsScaled")
-  
-  save_plot(paste0(getwd(),"/Manuscript/Figs/Effects_Of_Scaling_DBSCAN_CO2_Over_Total.png"),width = 8,height = 5.5)
+  # rescaled_anomaly_by_total_total_removed <- rescaled_anomaly_by_total %>%
+  #   dplyr::select(-c(Total_Measurements))
+  # 
+  # combined_totals <- rbind(trimmed_anoms_by_total,rescaled_anomaly_by_total_total_removed) %>%
+  #   dplyr::mutate(IsScaled=ifelse(as.numeric(rownames(.))<20,"Unscaled","Scaled"))
+  # 
+  # bc_effects <- census_tract_cluster_statplots(combined_totals,"BC_UFP_Cluster",
+  #                                      title = expression(paste("Effects of Scaling on Normalized DBSCAN BC/UFP Anomalies")),
+  #                                      ylabel = expression(paste("% BC/UFP")),
+  #                                      fill_color = c(munsell::mnsl("5G 6/8"),munsell::mnsl("5YR 7/12")),
+  #                                      bar_groups = "IsScaled")
+  # 
+  # save_plot(paste0(getwd(),"/Manuscript/Figs/Effects_Of_Scaling_DBSCAN_BC_UFP_Over_Total.png"),width = 8,height = 5.5)
+  #  
+  # co2_effects <- census_tract_cluster_statplots(combined_totals,"CO2_Cluster",
+  #                                      title = expression(paste("Effects of Scaling on Normalized DBSCAN ", CO[2], " Anomalies")),
+  #                                      ylabel = expression(paste("% ",CO[2])),
+  #                                      fill_color = c(munsell::mnsl("5G 6/8"),munsell::mnsl("5YR 7/12")),
+  #                                      bar_groups = "IsScaled")
+  # 
+  # save_plot(paste0(getwd(),"/Manuscript/Figs/Effects_Of_Scaling_DBSCAN_CO2_Over_Total.png"),width = 8,height = 5.5)
 }
 
 ## Comparing CTs from reweighted schemes, reweighted schemes without highway
 ## Comparing probabilities of detection, not the raw totals themselves for manu
 {
-  wp1 <- census_tract_cluster_statplots(rescaled_anomaly_by_total,"CO2_Cluster",
-                                        title = expression(paste(CO[2], " Anomaly Detections Normalized by Census Tract Total Measurements")),
-                                        ylabel = expression(paste("% ", CO[2])),
-                                        fill_color = munsell::mnsl("5G 6/8"))
-  
-  wp2 <- census_tract_cluster_statplots(rescaled_anomaly_by_total,"BC_UFP_Cluster",
-                                        title = expression(paste("BC/UFP Anomaly Detections by Normalized Census Tract Total Measurements")),
-                                        ylabel = expression(paste("% BC/UFP")),
-                                        fill_color = munsell::mnsl("5G 6/8"))
-  
-
-  output <- gridExtra::arrangeGrob(wp1,wp2)
-  
-  save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Rescaled_Anomaly_Over_Total.png"),
-            width = 8,height = 11,plot = output)
-  
-  wp3 <- census_tract_cluster_statplots(rescaled_anomaly_by_total,"Transition_Cluster",
-                                        title = expression(paste("Transition Anomaly Detections by Normalized Census Tract Total Measurements")),
-                                        ylabel = expression(paste("% Transition")),
-                                        fill_color = munsell::mnsl("5G 6/8"))
-  
-  save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Rescaled_Transition_Anomaly_Over_Total.png"),
-            width = 8,height = 5.5,plot = output)
-  
-  # np1 <- census_tract_cluster_statplots(rescaled_neighborhood_anomaly_by_total,"CO2_Cluster",
-  #                                      title = expression(paste("Rescaled DBSCAN ", CO[2], " Total Anomaly Detections in Neighborhood of Census Tract")),
-  #                                      ylabel = "Count",
-  #                                      fill_color = munsell::mnsl("5PB 5/12"))
+  # wp1 <- census_tract_cluster_statplots(rescaled_anomaly_by_total,"CO2_Cluster",
+  #                                       title = expression(paste(CO[2], " Anomaly Detections Normalized by Census Tract Total Measurements")),
+  #                                       ylabel = expression(paste("% ", CO[2])),
+  #                                       fill_color = munsell::mnsl("5G 6/8"))
   # 
-  # np2 <- census_tract_cluster_statplots(rescaled_neighborhood_anomaly_totals,"BC_UFP_Cluster",
-  #                                      title = expression(paste("Rescaled DBSCAN BC/UFP Total Anomaly Detections in Neighborhood of  Census Tract")),
-  #                                      ylabel = "Count",
-  #                                      fill_color = munsell::mnsl("5PB 5/12"))
-  
-  combined_totals <- rbind(rescaled_anomaly_by_total,rescaled_neighborhood_anomaly_by_total) %>%
-    dplyr::mutate(ContainsHighway=ifelse(as.numeric(rownames(.))<20 ,"With Highway","No Highway"))
-  
-  bc_effects <- census_tract_cluster_statplots(combined_totals,"BC_UFP_Cluster",
-                                       title = expression(paste("Effects of Removing Highways on Normalized DBSCAN BC/UFP Anomalies")),
-                                       ylabel = expression(paste("% BC/UFP")),
-                                       fill_color = c(munsell::mnsl("5PB 5/12"),munsell::mnsl("5G 6/8")),
-                                       bar_groups = "ContainsHighway")
-  
-  save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Effects_of_Highway_Removal_BC_UFP_Over_Total.png"),
-            width = 8,height = 5.5,plot = bc_effects)
-  
-  co2_effects <- census_tract_cluster_statplots(combined_totals,"CO2_Cluster",
-                                       title = expression(paste("Effects of Removing Highways on Normalized ",CO[2], " Anomalies")),
-                                       ylabel = expression(paste("% ", CO[2])),
-                                       fill_color = c(munsell::mnsl("5PB 5/12"),munsell::mnsl("5G 6/8")),
-                                       bar_groups = "ContainsHighway")
-  
-  save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Effects_of_Highway_Removal_CO2_Over_Total.png"),
-            width = 8,height = 5.5,plot = co2_effects)
-  
-  ## Create table containing probabilities of detecting each anomaly type
-  if(T) {
-    rescaled_anomaly_by_total %>%
-      kableExtra::kbl() %>%
-      kableExtra::kable_paper(full_width = F)
-  }
+  # wp2 <- census_tract_cluster_statplots(rescaled_anomaly_by_total,"BC_UFP_Cluster",
+  #                                       title = expression(paste("BC/UFP Anomaly Detections by Normalized Census Tract Total Measurements")),
+  #                                       ylabel = expression(paste("% BC/UFP")),
+  #                                       fill_color = munsell::mnsl("5G 6/8"))
+  # 
+  # 
+  # output <- gridExtra::arrangeGrob(wp1,wp2)
+  # 
+  # save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Rescaled_Anomaly_Over_Total.png"),
+  #           width = 8,height = 11,plot = output)
+  # 
+  # wp3 <- census_tract_cluster_statplots(rescaled_anomaly_by_total,"Transition_Cluster",
+  #                                       title = expression(paste("Transition Anomaly Detections by Normalized Census Tract Total Measurements")),
+  #                                       ylabel = expression(paste("% Transition")),
+  #                                       fill_color = munsell::mnsl("5G 6/8"))
+  # 
+  # save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Rescaled_Transition_Anomaly_Over_Total.png"),
+  #           width = 8,height = 5.5,plot = output)
+  # 
+  # # np1 <- census_tract_cluster_statplots(rescaled_neighborhood_anomaly_by_total,"CO2_Cluster",
+  # #                                      title = expression(paste("Rescaled DBSCAN ", CO[2], " Total Anomaly Detections in Neighborhood of Census Tract")),
+  # #                                      ylabel = "Count",
+  # #                                      fill_color = munsell::mnsl("5PB 5/12"))
+  # # 
+  # # np2 <- census_tract_cluster_statplots(rescaled_neighborhood_anomaly_totals,"BC_UFP_Cluster",
+  # #                                      title = expression(paste("Rescaled DBSCAN BC/UFP Total Anomaly Detections in Neighborhood of  Census Tract")),
+  # #                                      ylabel = "Count",
+  # #                                      fill_color = munsell::mnsl("5PB 5/12"))
+  # 
+  # combined_totals <- rbind(rescaled_anomaly_by_total,rescaled_neighborhood_anomaly_by_total) %>%
+  #   dplyr::mutate(ContainsHighway=ifelse(as.numeric(rownames(.))<20 ,"With Highway","No Highway"))
+  # 
+  # bc_effects <- census_tract_cluster_statplots(combined_totals,"BC_UFP_Cluster",
+  #                                      title = expression(paste("Effects of Removing Highways on Normalized DBSCAN BC/UFP Anomalies")),
+  #                                      ylabel = expression(paste("% BC/UFP")),
+  #                                      fill_color = c(munsell::mnsl("5PB 5/12"),munsell::mnsl("5G 6/8")),
+  #                                      bar_groups = "ContainsHighway")
+  # 
+  # save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Effects_of_Highway_Removal_BC_UFP_Over_Total.png"),
+  #           width = 8,height = 5.5,plot = bc_effects)
+  # 
+  # co2_effects <- census_tract_cluster_statplots(combined_totals,"CO2_Cluster",
+  #                                      title = expression(paste("Effects of Removing Highways on Normalized ",CO[2], " Anomalies")),
+  #                                      ylabel = expression(paste("% ", CO[2])),
+  #                                      fill_color = c(munsell::mnsl("5PB 5/12"),munsell::mnsl("5G 6/8")),
+  #                                      bar_groups = "ContainsHighway")
+  # 
+  # save_plot(filename = paste0(getwd(),"/Manuscript/Figs/Effects_of_Highway_Removal_CO2_Over_Total.png"),
+  #           width = 8,height = 5.5,plot = co2_effects)
+  # 
+  # ## Create table containing probabilities of detecting each anomaly type
+  # if(T) {
+  #   rescaled_anomaly_by_total %>%
+  #     kableExtra::kbl() %>%
+  #     kableExtra::kable_paper(full_width = F)
+  # }
 }
 
 ## Determining QOR anomaly type distributions by census tract
 {
-  qor_anoms_output <- assign_anomalies_to_polygons(qor_clust_anoms,houston_polygons)
-
-  qor_anoms_norm_by_anoms <- qor_anoms_output[[1]] %>% norm_by_anoms(.)
-
-  qor_anoms_norm_by_total <- norm_by_total(qor_anoms_output[[1]], total_polygon_points$Total_Points)
-  
-  # qor_anoms_norm_by_total %>%
-  #   mutate_at(2:4,~ round(.,2))%>%
-  #   kableExtra::kbl() %>%
-  #   kableExtra::kable_classic_2(bootstrap_options = c("condensed"),full_width = F) %>%
-  #   kableExtra::row_spec(c(18,26), bold = T, background = "red") %>%
-  #   kableExtra::column_spec(1:3, bold = F, background = "white")
+  # qor_anoms_output <- assign_anomalies_to_polygons(qor_clust_anoms,houston_polygons)
+  # 
+  # qor_anoms_norm_by_anoms <- qor_anoms_output[[1]] %>% norm_by_anoms(.)
+  # 
+  # qor_anoms_norm_by_total <- norm_by_total(qor_anoms_output[[1]], total_polygon_points$Total_Points)
+  # 
+  # # qor_anoms_norm_by_total %>%
+  # #   mutate_at(2:4,~ round(.,2))%>%
+  # #   kableExtra::kbl() %>%
+  # #   kableExtra::kable_classic_2(bootstrap_options = c("condensed"),full_width = F) %>%
+  # #   kableExtra::row_spec(c(18,26), bold = T, background = "red") %>%
+  # #   kableExtra::column_spec(1:3, bold = F, background = "white")
 }
 
 ## Bar plots of QOR anomaly type by census tract.
 {
-  p7 <- census_tract_cluster_statplots(qor_anoms_norm_by_total, "CO2_Cluster",
-                               title = expression(paste("QOR ", CO[2], " Anomalies Normalized by Census Tract Total Points")),
-                               ylabel = expression(paste("% ", CO[2], " Anomaly")),
-                               fill_color = munsell::mnsl('5B 8/8'))
-  
-  p8 <- census_tract_cluster_statplots(qor_anoms_norm_by_total, "BC_UFP_Cluster",
-                               title = expression(paste("QOR BC/UFP Anomalies Normalized by Census Tract Total Points")),
-                               ylabel = expression(paste("% BC/UFP Anomaly")),
-                               fill_color = munsell::mnsl('5B 8/8'))
-  
-  ggarrange(p7,p8,nrow=2)
-  
-  # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_Anomaly_Normed_By_Total_Bar_Stacked.png"),height = 11, width = 8)
+  # p7 <- census_tract_cluster_statplots(qor_anoms_norm_by_total, "CO2_Cluster",
+  #                              title = expression(paste("QOR ", CO[2], " Anomalies Normalized by Census Tract Total Points")),
+  #                              ylabel = expression(paste("% ", CO[2], " Anomaly")),
+  #                              fill_color = munsell::mnsl('5B 8/8'))
+  # 
+  # p8 <- census_tract_cluster_statplots(qor_anoms_norm_by_total, "BC_UFP_Cluster",
+  #                              title = expression(paste("QOR BC/UFP Anomalies Normalized by Census Tract Total Points")),
+  #                              ylabel = expression(paste("% BC/UFP Anomaly")),
+  #                              fill_color = munsell::mnsl('5B 8/8'))
+  # 
+  # ggarrange(p7,p8,nrow=2)
+  # 
+  # # save_plot(paste0(getwd(),"/Manuscript/Figs/QOR_Anomaly_Normed_By_Total_Bar_Stacked.png"),height = 11, width = 8)
 }
 
 ## Determining QOR anomaly type distributions by census tract. Tier 1, part of Tier 2, and SBC selected.
 ##  North River Oaks, South River Oaks, Kashmere, and East Fifth Ward excluded
 ## Temporal rescaling implemented.
 {
-  total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
-  
-  load(paste0(getwd(),"/qor_anoms_output.RData"))
-  
-  load(paste0(getwd(),"/t_output.RData"))  
-  
-  polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2 | houston_polygons$Name=="North River Oaks" | houston_polygons$Name=="South River Oaks"))
-  
-  qor_anomaly_all_roads_list <- qor_anoms_output$Points_In_Polygon[polys_2_extract]
-  
-  qor_total_all_roads_list <- total_output$Intersecting_List[polys_2_extract]
-  
-  qor_rescaled_values <- normalize_ct(qor_anomaly_all_roads_list,
-                                  qor_total_all_roads_list,
-                                  remove_weekends = T,
-                                  trim_cts = T)  
-  
-  qor_rescaled_anomaly_totals <- qor_rescaled_values$Rescaled_Anomaly_Totals 
-  qor_rescaled_anomaly_by_anom <- qor_rescaled_values$Rescaled_Anomaly_Normed_By_Anomaly
-  qor_rescaled_anomaly_by_total <- qor_rescaled_values$Rescaled_Anomaly_Normed_By_Total
-  
-  # qor_raw_anoms_output <-  qor_anoms_output$Raw_Anomaly_Output
+  # total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
   # 
-  # raw_anoms_over_total <- norm_by_total(raw_anoms_output,total_polygon_points$Total_Points)
-  
+  # load(paste0(getwd(),"/qor_anoms_output.RData"))
+  # 
+  # load(paste0(getwd(),"/t_output.RData"))  
+  # 
+  # polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2 | houston_polygons$Name=="North River Oaks" | houston_polygons$Name=="South River Oaks"))
+  # 
+  # qor_anomaly_all_roads_list <- qor_anoms_output$Points_In_Polygon[polys_2_extract]
+  # 
+  # qor_total_all_roads_list <- total_output$Intersecting_List[polys_2_extract]
+  # 
+  # qor_rescaled_values <- normalize_ct(qor_anomaly_all_roads_list,
+  #                                 qor_total_all_roads_list,
+  #                                 remove_weekends = T,
+  #                                 trim_cts = T)  
+  # 
+  # qor_rescaled_anomaly_totals <- qor_rescaled_values$Rescaled_Anomaly_Totals 
+  # qor_rescaled_anomaly_by_anom <- qor_rescaled_values$Rescaled_Anomaly_Normed_By_Anomaly
+  # qor_rescaled_anomaly_by_total <- qor_rescaled_values$Rescaled_Anomaly_Normed_By_Total
+  # 
+  # # qor_raw_anoms_output <-  qor_anoms_output$Raw_Anomaly_Output
+  # # 
+  # # raw_anoms_over_total <- norm_by_total(raw_anoms_output,total_polygon_points$Total_Points)
+  # 
 }
 
 ## Performing CT by CT comparison of normalized QOR, DBSCAN anomalies
@@ -1742,115 +1769,115 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
 
 ## Determining weekend effects.
 {
-  ## Count number of measurements made on weekends vs. weekdays.
-  weekend_emissions <- db_labeled_emissions %>%
-    dplyr::mutate("Day_of_week"=lubridate::wday(LST)) %>%
-    dplyr::filter(Day_of_week==1 | Day_of_week == 7)
-  
-  weekend_ct <- count_anomalies_in_polygons(weekend_emissions, houston_polygons, by_anomaly_type = F)
-  
-  weekend_ct <- weekend_ct$Points_In_Polygon
-  
-  ## Total number of points.
-  total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
-  
-  ## Calculate percentage of points measured in census tract on weekends
-  weekend_percentages <- tibble("Census_Tract"=sapply(weekend_ct,function(x)x[[1]]), 
-                                "Number_of_Measurements(%)"=sapply(weekend_ct, function(x) nrow(x[[2]]))) %>%
-    mutate_at(2, ~ round(./total_polygon_points$Total_Points*100,2)) %>%
-    kableExtra::kbl() %>%
-    kableExtra::kable_classic(full_width = F) %>%
-    print()
-  
-  
+  # ## Count number of measurements made on weekends vs. weekdays.
+  # weekend_emissions <- db_labeled_emissions %>%
+  #   dplyr::mutate("Day_of_week"=lubridate::wday(LST)) %>%
+  #   dplyr::filter(Day_of_week==1 | Day_of_week == 7)
+  # 
+  # weekend_ct <- count_anomalies_in_polygons(weekend_emissions, houston_polygons, by_anomaly_type = F)
+  # 
+  # weekend_ct <- weekend_ct$Points_In_Polygon
+  # 
+  # ## Total number of points.
+  # total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
+  # 
+  # ## Calculate percentage of points measured in census tract on weekends
+  # weekend_percentages <- tibble("Census_Tract"=sapply(weekend_ct,function(x)x[[1]]), 
+  #                               "Number_of_Measurements(%)"=sapply(weekend_ct, function(x) nrow(x[[2]]))) %>%
+  #   mutate_at(2, ~ round(./total_polygon_points$Total_Points*100,2)) %>%
+  #   kableExtra::kbl() %>%
+  #   kableExtra::kable_classic(full_width = F) %>%
+  #   print()
+  # 
+  # 
 }
 
 ## Counting unique number of drive days in polygons. Unique drive day defined as
 ## unique combination of month number and mday number
 {
-  polygonsForAnalysis <- total_output$Intersecting_List[polys_2_extract]
-  
-  count_unique_drive_days <- function(df){
-    df <- df %>%
-      dplyr::mutate("Day"=lubridate::mday(LST)) %>%
-      dplyr::mutate("Month"=lubridate::month(LST)) %>%
-      group_split(Day,Month,.keep = FALSE)
-    
-    return(length(df))
-  }
-  
-  unique_dds <- sapply(polygonsForAnalysis,function(x) count_unique_drive_days(x[[2]]))
+  # polygonsForAnalysis <- total_output$Intersecting_List[polys_2_extract]
+  # 
+  # count_unique_drive_days <- function(df){
+  #   df <- df %>%
+  #     dplyr::mutate("Day"=lubridate::mday(LST)) %>%
+  #     dplyr::mutate("Month"=lubridate::month(LST)) %>%
+  #     group_split(Day,Month,.keep = FALSE)
+  #   
+  #   return(length(df))
+  # }
+  # 
+  # unique_dds <- sapply(polygonsForAnalysis,function(x) count_unique_drive_days(x[[2]]))
 }
 
 ## Determine 5th, 95th percentiles of time stamps for given census tract 
 ## in an intersecting list.
 {
-  return_hourly_quantiles <- function(intersecting_list_entry){
-    
-    intersecting_list_entry[[2]] <- intersecting_list_entry[[2]] %>%
-      dplyr::mutate(H=lubridate::hour(LST))
-    
-    low_quant <- quantile(intersecting_list_entry[[2]]$H,0.05)
-    
-    high_quant <- quantile(intersecting_list_entry[[2]]$H,0.95)
-    
-    return(c(low_quant,high_quant))
-  }
-  
-  return_trimmed_measurements <- function(intersecting_list_entry){
-    
-    quants <- return_hourly_quantiles(intersecting_list_entry)
-    
-    trimmed_data <- intersecting_list_entry[[2]] %>%
-      dplyr::mutate(H = lubridate::hour(LST)) %>%
-      dplyr::filter(H<quants[1] | H>quants[2])
-    
-    return(list("Trimmed_Measurements" = nrow(trimmed_data),
-                "Total_Measurements"=nrow(intersecting_list_entry[[2]])))
-  }
-  polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2) | houston_polygons$Name=="Memorial Park")
-  ## Preparing table for neighborhood + highway
-  hourly_quants <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hourly_quantiles(x))
-  
-  extracted_measurements <- lapply(total_output$Intersecting_List[polys_2_extract], function(x) return_trimmed_measurements(x))
-  
-  extracted_trimmed <- sapply(extracted_measurements, function(x) return(x$Trimmed_Measurements))
-  
-  extracted_total <- sapply(extracted_measurements, function(x) return(x$Total_Measurements))
-  
-  census_sampling_snapshot <- tibble("Census Tract"=sapply(total_neighborhood_list, function(x) return(x[[1]])),
-                                     "5th Quantile"=hourly_quants[1,],
-                                     "95th Quantile"=hourly_quants[2,],
-                                     "Total Trimmed Measurements"=extracted_trimmed,
-                                     "Total Measurements" = extracted_total) %>%
-    dplyr::mutate("Percentage Extracted (%)" = `Total Trimmed Measurements`/`Total Measurements`*100) %>%
-    dplyr::mutate_at(6, ~round(.,2)) %>%
-    kableExtra::kbl() %>%
-    kableExtra::kable_minimal(full_width = F)
-  
-  print(census_sampling_snapshot)
-  
-  ## In neighborhood ONLY
-  
-  hourly_quants <- sapply(total_neighborhood_list,function(x) return_hourly_quantiles(x))
-  
-  extracted_measurements <- lapply(total_neighborhood_list, function(x) return_trimmed_measurements(x))
-  
-  extracted_trimmed <- sapply(extracted_measurements, function(x) return(x$Trimmed_Measurements))
-  
-  extracted_total <- sapply(extracted_measurements, function(x) return(x$Total_Measurements))
-  
-  in_neighborhood_census_sampling_snapshot <- tibble("Census Tract"=sapply(total_neighborhood_list, function(x) return(x[[1]])),
-                                     "5th Quantile"=hourly_quants[1,],
-                                     "95th Quantile"=hourly_quants[2,],
-                                     "Total Trimmed Measurements"=extracted_trimmed,
-                                     "Total Measurements" = extracted_total) %>%
-    dplyr::mutate("Percentage Extracted (%)" = `Total Trimmed Measurements`/`Total Measurements`*100) %>%
-    dplyr::mutate_at(6, ~round(.,2)) %>%
-    kableExtra::kbl() %>%
-    kableExtra::kable_minimal(full_width = F)
-  
-  print(in_neighborhood_census_sampling_snapshot)
+  # return_hourly_quantiles <- function(intersecting_list_entry){
+  #   
+  #   intersecting_list_entry[[2]] <- intersecting_list_entry[[2]] %>%
+  #     dplyr::mutate(H=lubridate::hour(LST))
+  #   
+  #   low_quant <- quantile(intersecting_list_entry[[2]]$H,0.05)
+  #   
+  #   high_quant <- quantile(intersecting_list_entry[[2]]$H,0.95)
+  #   
+  #   return(c(low_quant,high_quant))
+  # }
+  # 
+  # return_trimmed_measurements <- function(intersecting_list_entry){
+  #   
+  #   quants <- return_hourly_quantiles(intersecting_list_entry)
+  #   
+  #   trimmed_data <- intersecting_list_entry[[2]] %>%
+  #     dplyr::mutate(H = lubridate::hour(LST)) %>%
+  #     dplyr::filter(H<quants[1] | H>quants[2])
+  #   
+  #   return(list("Trimmed_Measurements" = nrow(trimmed_data),
+  #               "Total_Measurements"=nrow(intersecting_list_entry[[2]])))
+  # }
+  # polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2) | houston_polygons$Name=="Memorial Park")
+  # ## Preparing table for neighborhood + highway
+  # hourly_quants <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hourly_quantiles(x))
+  # 
+  # extracted_measurements <- lapply(total_output$Intersecting_List[polys_2_extract], function(x) return_trimmed_measurements(x))
+  # 
+  # extracted_trimmed <- sapply(extracted_measurements, function(x) return(x$Trimmed_Measurements))
+  # 
+  # extracted_total <- sapply(extracted_measurements, function(x) return(x$Total_Measurements))
+  # 
+  # census_sampling_snapshot <- tibble("Census Tract"=sapply(total_neighborhood_list, function(x) return(x[[1]])),
+  #                                    "5th Quantile"=hourly_quants[1,],
+  #                                    "95th Quantile"=hourly_quants[2,],
+  #                                    "Total Trimmed Measurements"=extracted_trimmed,
+  #                                    "Total Measurements" = extracted_total) %>%
+  #   dplyr::mutate("Percentage Extracted (%)" = `Total Trimmed Measurements`/`Total Measurements`*100) %>%
+  #   dplyr::mutate_at(6, ~round(.,2)) %>%
+  #   kableExtra::kbl() %>%
+  #   kableExtra::kable_minimal(full_width = F)
+  # 
+  # print(census_sampling_snapshot)
+  # 
+  # ## In neighborhood ONLY
+  # 
+  # hourly_quants <- sapply(total_neighborhood_list,function(x) return_hourly_quantiles(x))
+  # 
+  # extracted_measurements <- lapply(total_neighborhood_list, function(x) return_trimmed_measurements(x))
+  # 
+  # extracted_trimmed <- sapply(extracted_measurements, function(x) return(x$Trimmed_Measurements))
+  # 
+  # extracted_total <- sapply(extracted_measurements, function(x) return(x$Total_Measurements))
+  # 
+  # in_neighborhood_census_sampling_snapshot <- tibble("Census Tract"=sapply(total_neighborhood_list, function(x) return(x[[1]])),
+  #                                    "5th Quantile"=hourly_quants[1,],
+  #                                    "95th Quantile"=hourly_quants[2,],
+  #                                    "Total Trimmed Measurements"=extracted_trimmed,
+  #                                    "Total Measurements" = extracted_total) %>%
+  #   dplyr::mutate("Percentage Extracted (%)" = `Total Trimmed Measurements`/`Total Measurements`*100) %>%
+  #   dplyr::mutate_at(6, ~round(.,2)) %>%
+  #   kableExtra::kbl() %>%
+  #   kableExtra::kable_minimal(full_width = F)
+  # 
+  # print(in_neighborhood_census_sampling_snapshot)
 }
 
 ## Generate polygon map with polygons colored with probabilities of detection
@@ -1864,156 +1891,160 @@ normalize_ct <- function(intersecting_list_anomaly, intersecting_list_total,remo
   CO2_map <- generate_poly_map(polygons_to_map,fill_by = "CO2_Probability",bins = seq(0,6,1),
                     legend_title = glue::glue("CO<sub>{2}</sub> Probabilities (%)"))
   
-  mapview::mapshot(CO2_map,file = paste0(getwd(),"/Manuscript/Figs/CO2_Probabilities_Polygon_Map.png"),
-                   remove_controls = c("zoomControl"),vwidth = 1050)
+  htmlwidgets::saveWidget(CO2_map, file = paste0(getwd(),"/Manuscript/Figs/CO2_map.html"))
+  
+  webshot::webshot(url = paste0(getwd(),"/Manuscript/Figs/CO2_map.html"), 
+                 file = paste0(getwd(),"/Manuscript/Figs/CO2_Probabilities_Polygon_Map.png"))
   
   BC_map <- generate_poly_map(polygons_to_map,fill_by = "BC_UFP_Probability",bins = 7,
                     legend_title = "BC/UFP Probabilities (%)")
   
-  mapview::mapshot(BC_map,file = paste0(getwd(),"/Manuscript/Figs/BC_UFP_Probabilities_Polygon_Map.png"),
-                   remove_controls = c("zoomControl"),vwidth = 1050)
+  htmlwidgets::saveWidget(BC_map, file = paste0(getwd(),"/Manuscript/Figs/BC_map.html"))
+  
+  webshot::webshot(url = paste0(getwd(),"/Manuscript/Figs/BC_map.html"), 
+                 file = paste0(getwd(),"/Manuscript/Figs/BC_Probabilities_Polygon_Map.png"))
 }
 
 ## Count number of points taken in hour for given polygon and create
 ## table from it
 {
-   return_hour_total <- function(intersecting_list_entry,selected_hour){
-    
-    intersecting_list_entry[[2]] <- intersecting_list_entry[[2]] %>%
-      dplyr::mutate(H=lubridate::hour(LST)) %>%
-      dplyr::filter(H==selected_hour)
-    
-    
-    
-    return(nrow(intersecting_list_entry[[2]]))
-  }
-  
-  
-  polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2))
-  ## Preparing table for neighborhood + highway
-  eight_am_totals <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hour_total(x,8))
-  
-  one_pm_totals <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hour_total(x,13))
-  
-  ct_extremes_snapshot <- tibble("Census Tract"=sapply(total_neighborhood_list, function(x) return(x[[1]])),
-                                     "Number of 8 AM Measurements"=eight_am_totals,
-                                     "Number of 1 PM Measurements"=one_pm_totals) %>%
-    kableExtra::kbl() %>%
-    kableExtra::kable_minimal(full_width = F)
-  
-  print(ct_extremes_snapshot)
-  
-  ## Calculating minimum number of measurements in each polygon
-  for(h in seq(from=8, to = 15, by =1)){
-    hour_totals <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hour_total(x,h))
-    
-    print(h)
-    
-    print(min(hour_totals))
-  }
+  #  return_hour_total <- function(intersecting_list_entry,selected_hour){
+  #   
+  #   intersecting_list_entry[[2]] <- intersecting_list_entry[[2]] %>%
+  #     dplyr::mutate(H=lubridate::hour(LST)) %>%
+  #     dplyr::filter(H==selected_hour)
+  #   
+  #   
+  #   
+  #   return(nrow(intersecting_list_entry[[2]]))
+  # }
+  # 
+  # 
+  # polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2))
+  # ## Preparing table for neighborhood + highway
+  # eight_am_totals <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hour_total(x,8))
+  # 
+  # one_pm_totals <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hour_total(x,13))
+  # 
+  # ct_extremes_snapshot <- tibble("Census Tract"=sapply(total_neighborhood_list, function(x) return(x[[1]])),
+  #                                    "Number of 8 AM Measurements"=eight_am_totals,
+  #                                    "Number of 1 PM Measurements"=one_pm_totals) %>%
+  #   kableExtra::kbl() %>%
+  #   kableExtra::kable_minimal(full_width = F)
+  # 
+  # print(ct_extremes_snapshot)
+  # 
+  # ## Calculating minimum number of measurements in each polygon
+  # for(h in seq(from=8, to = 15, by =1)){
+  #   hour_totals <- sapply(total_output$Intersecting_List[polys_2_extract],function(x) return_hour_total(x,h))
+  #   
+  #   print(h)
+  #   
+  #   print(min(hour_totals))
+  # }
 }
 
 ## Calculating bootstrap confidence intervals for normalized probability calculation.
 
 {
-  ## Load in the data
-  total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
-  
-  load(paste0(getwd(),"/db_anoms_output.RData"))
-  
-  load(paste0(getwd(),"/t_output.RData"))  
-  
-  ## Extract target polygons
-  polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2 | houston_polygons$Name=="North River Oaks" | houston_polygons$Name=="South River Oaks"))
-  
-  anomaly_all_roads_list <- db_anoms_output$Points_In_Polygon[polys_2_extract]
-  
-  total_all_roads_list <- total_output$Intersecting_List[polys_2_extract]
-  
-  ## Remove weekend points
-  anomaly_all_roads_list <- lapply(anomaly_all_roads_list, function(x) remove_weekend_points(x))
-  
-  total_all_roads_list <- lapply(total_all_roads_list, function(x) remove_weekend_points(x))
-  
-  ## Constrict hours of analysis to be between 8 AM, 3 PM inclusive.
-  for (j in seq(from=1,to=length(anomaly_all_roads_list),by=1)){
-    
-    trimmed_output <- trim_hourly_tails(anomaly_all_roads_list[[j]][[2]],total_all_roads_list[[j]][[2]])
-    
-    anomaly_all_roads_list[[j]][[2]] <- trimmed_output[[1]]
-      
-    total_all_roads_list[[j]][[2]] <- trimmed_output[[2]]  
-  }
-  
-  ## For each polygon, will need to create 100 synthetic total sampling distributions
-  ## From the 100 synthetic total sampling distributions, create the corresponding anomaly distributions
-  ## Input that into normalize_ct.
-  
-  generate_synthetic_distributions <- function(anomaly_intersecting_list_entry,total_intersecting_list_entry,bootstrap_iterations=100){
-    
-    synthetic_sampling_list <- vector(mode = "list",length = bootstrap_iterations)
-  
-    synthetic_anomaly_list <- vector(mode = "list", length = bootstrap_iterations)  
-    
-    sample_df <- total_intersecting_list_entry[[1]][[2]]
-    
-    anomaly_df <- anomaly_intersecting_list_entry[[1]][[2]]
-    
-    for(i in 1:bootstrap_iterations){
-      synthetic_sampling_list[[i]][[1]] <- total_intersecting_list_entry[[1]][[1]]
-      
-      synthetic_anomaly_list[[i]][[1]] <- anomaly_intersecting_list_entry[[1]][[1]]
-      
-      rows_to_sample <- seq(1,nrow(sample_df),1)
-      
-      sampled_indices <- sample(rows_to_sample,nrow(sample_df),replace = T)
-      
-      synthetic_total_sampling_distro <- sample_df[sampled_indices,]  
-      
-      synthetic_anomaly_distro <- dplyr::left_join(anomaly_df,synthetic_total_sampling_distro,by = c("BC","CO2","NOx","UFP","LST","geometry","Road_Class","Day_Of_Week","Intersecting_Poly","Uniq_Fac")) %>%
-        drop_na() %>%
-        select(-Anomaly.y) %>%
-        rename("Anomaly"=Anomaly.x)
-      
-      synthetic_sampling_list[[i]][[2]] <- synthetic_total_sampling_distro
-      
-      synthetic_anomaly_list[[i]][[2]] <- synthetic_anomaly_distro
-    }
-  
-    rescaled_output <- normalize_ct(synthetic_anomaly_list,synthetic_sampling_list,
-                                    remove_weekends = F,
-                                    trim_cts = F)
-    
-    rescaled_probabilities <- rescaled_output$Rescaled_Anomaly_Normed_By_Total  
-    
-    return(rescaled_probabilities)
-  }
-  
-  bootstrap_results <- vector(mode = "list",length = length(total_all_roads_list))
-  
-  for(k in 1:length(total_all_roads_list)){
-    bootstrap_results[[k]] <- generate_synthetic_distributions(anomaly_all_roads_list[k],total_all_roads_list[k],bootstrap_iterations = 500)
-  }
-  
+  # ## Load in the data
+  # total_polygon_points <- fread(paste0(getwd(),"/total_polygon_points_updated.csv"), select = c("Name","Total_Points"))
+  # 
+  # load(paste0(getwd(),"/db_anoms_output.RData"))
+  # 
+  # load(paste0(getwd(),"/t_output.RData"))  
+  # 
+  # ## Extract target polygons
+  # polys_2_extract <- (!(houston_polygons$ct_num==1 | houston_polygons$ct_num==2 | houston_polygons$Name=="North River Oaks" | houston_polygons$Name=="South River Oaks"))
+  # 
+  # anomaly_all_roads_list <- db_anoms_output$Points_In_Polygon[polys_2_extract]
+  # 
+  # total_all_roads_list <- total_output$Intersecting_List[polys_2_extract]
+  # 
+  # ## Remove weekend points
+  # anomaly_all_roads_list <- lapply(anomaly_all_roads_list, function(x) remove_weekend_points(x))
+  # 
+  # total_all_roads_list <- lapply(total_all_roads_list, function(x) remove_weekend_points(x))
+  # 
+  # ## Constrict hours of analysis to be between 8 AM, 3 PM inclusive.
+  # for (j in seq(from=1,to=length(anomaly_all_roads_list),by=1)){
+  #   
+  #   trimmed_output <- trim_hourly_tails(anomaly_all_roads_list[[j]][[2]],total_all_roads_list[[j]][[2]])
+  #   
+  #   anomaly_all_roads_list[[j]][[2]] <- trimmed_output[[1]]
+  #     
+  #   total_all_roads_list[[j]][[2]] <- trimmed_output[[2]]  
+  # }
+  # 
+  # ## For each polygon, will need to create 100 synthetic total sampling distributions
+  # ## From the 100 synthetic total sampling distributions, create the corresponding anomaly distributions
+  # ## Input that into normalize_ct.
+  # 
+  # generate_synthetic_distributions <- function(anomaly_intersecting_list_entry,total_intersecting_list_entry,bootstrap_iterations=100){
+  #   
+  #   synthetic_sampling_list <- vector(mode = "list",length = bootstrap_iterations)
+  # 
+  #   synthetic_anomaly_list <- vector(mode = "list", length = bootstrap_iterations)  
+  #   
+  #   sample_df <- total_intersecting_list_entry[[1]][[2]]
+  #   
+  #   anomaly_df <- anomaly_intersecting_list_entry[[1]][[2]]
+  #   
+  #   for(i in 1:bootstrap_iterations){
+  #     synthetic_sampling_list[[i]][[1]] <- total_intersecting_list_entry[[1]][[1]]
+  #     
+  #     synthetic_anomaly_list[[i]][[1]] <- anomaly_intersecting_list_entry[[1]][[1]]
+  #     
+  #     rows_to_sample <- seq(1,nrow(sample_df),1)
+  #     
+  #     sampled_indices <- sample(rows_to_sample,nrow(sample_df),replace = T)
+  #     
+  #     synthetic_total_sampling_distro <- sample_df[sampled_indices,]  
+  #     
+  #     synthetic_anomaly_distro <- dplyr::left_join(anomaly_df,synthetic_total_sampling_distro,by = c("BC","CO2","NOx","UFP","LST","geometry","Road_Class","Day_Of_Week","Intersecting_Poly","Uniq_Fac")) %>%
+  #       drop_na() %>%
+  #       select(-Anomaly.y) %>%
+  #       rename("Anomaly"=Anomaly.x)
+  #     
+  #     synthetic_sampling_list[[i]][[2]] <- synthetic_total_sampling_distro
+  #     
+  #     synthetic_anomaly_list[[i]][[2]] <- synthetic_anomaly_distro
+  #   }
+  # 
+  #   rescaled_output <- normalize_ct(synthetic_anomaly_list,synthetic_sampling_list,
+  #                                   remove_weekends = F,
+  #                                   trim_cts = F)
+  #   
+  #   rescaled_probabilities <- rescaled_output$Rescaled_Anomaly_Normed_By_Total  
+  #   
+  #   return(rescaled_probabilities)
+  # }
+  # 
+  # bootstrap_results <- vector(mode = "list",length = length(total_all_roads_list))
+  # 
+  # for(k in 1:length(total_all_roads_list)){
+  #   bootstrap_results[[k]] <- generate_synthetic_distributions(anomaly_all_roads_list[k],total_all_roads_list[k],bootstrap_iterations = 500)
+  # }
+  # 
 }
 
 ## Analyze synthetic distributions
 {
-  load(file = paste0(getwd(),"/bootstrapped_cts.RData"))
-  
-  ## Create tibble from bootstrapped results.
-  bootstrapped_df <- list_to_tibble(bootstrap_results[1:18]) %>%
-    dplyr::select(-Uniq_Fac)
-  
-  ## Create barplot.
-  # ggbarplot(bootstrapped_df,x="Name",y="CO2_Cluster",add = "mean_ci",error.plot = "linerange")  
-  
-  ## Alternative way of creating barplot.
-  bootstrapped_df_streamlined <- bootstrapped_df %>%
-    dplyr::group_by(Name) %>%
-    dplyr::summarize("CO2_Mean" = mean(CO2_Cluster),"CO2_Lower" = quantile(CO2_Cluster,0.05),"CO2_Upper"=quantile(CO2_Cluster,0.95),
-                     "BC_UFP_Mean" = mean(BC_UFP_Cluster), "BC_UFP_Lower" = quantile(BC_UFP_Cluster,0.05), "BC_UFP_Upper"= quantile(BC_UFP_Cluster,0.95))
-  
-  
-  
+  # load(file = paste0(getwd(),"/bootstrapped_cts.RData"))
+  # 
+  # ## Create tibble from bootstrapped results.
+  # bootstrapped_df <- list_to_tibble(bootstrap_results[1:18]) %>%
+  #   dplyr::select(-Uniq_Fac)
+  # 
+  # ## Create barplot.
+  # # ggbarplot(bootstrapped_df,x="Name",y="CO2_Cluster",add = "mean_ci",error.plot = "linerange")  
+  # 
+  # ## Alternative way of creating barplot.
+  # bootstrapped_df_streamlined <- bootstrapped_df %>%
+  #   dplyr::group_by(Name) %>%
+  #   dplyr::summarize("CO2_Mean" = mean(CO2_Cluster),"CO2_Lower" = quantile(CO2_Cluster,0.05),"CO2_Upper"=quantile(CO2_Cluster,0.95),
+  #                    "BC_UFP_Mean" = mean(BC_UFP_Cluster), "BC_UFP_Lower" = quantile(BC_UFP_Cluster,0.05), "BC_UFP_Upper"= quantile(BC_UFP_Cluster,0.95))
+  # 
+  # 
+  # 
 }

@@ -15,7 +15,7 @@ list_to_tibble <- function(data_subset_list){
   # output_tibble <- unlist(data_subset_list[[1]],use.names=F)
   # for(i in 2:length(data_subset_list)) {output_tibble <- rbind(output_tibble,unlist(data_subset_list[[i]],use.names=F))}
   # return(output_tibble)
-
+  
   current_grp_index <- 1
   
   output_tibble <- cbind(data_subset_list[[1]],"Uniq_Fac"=rep(current_grp_index,nrow(data_subset_list[[1]])))
@@ -187,30 +187,35 @@ list_to_tibble <- function(data_subset_list){
   }
   
   shapefile_processing <- function(sf_df){
-  # require(data.table)
-  shp_points <- st_read(paste0(getwd(),"/Houston_Shape_Files/Houston_10mpts_seg50_90_final.shp"),
-                                  query = 'SELECT selfsample, Longitude, Latitude, MTFCC FROM Houston_10mpts_seg50_90_final')
-  
-  nearest_points <- st_nearest_feature(sf_df, shp_points)
-  
-  sf_df_removed <- cbind(sf_df, "Self_Sample" = shp_points$selfsample[nearest_points],
-                         "Road_Class"=shp_points$MTFCC[nearest_points]) %>%
-    dplyr::mutate(NN_Dist=calculate_euclidean_distance(.$geometry,shp_points$geometry[nearest_points]))%>%
-    filter(Self_Sample==0) %>%
-    dplyr::filter(NN_Dist<30) %>%
-    dplyr::filter(Road_Class=="S1100"|Road_Class=="S1200"|Road_Class=="S1400"|Road_Class=="S1630"|Road_Class=="S1640"|Road_Class=="S1740")%>%
-    dplyr::select(-Self_Sample) %>%
-    dplyr::select(-NN_Dist)
-
-  return(sf_df_removed)
-}
+    require(sf)
+    shp_points <- st_read(paste0(getwd(),"/Houston_Shape_Files/Houston_10mpts_seg50_90_final.shp"),
+                          query = 'SELECT selfsample, Longitude, Latitude, MTFCC FROM Houston_10mpts_seg50_90_final')
+    
+    nearest_points <- st_nearest_feature(sf_df, shp_points)
+    
+    sf_df_removed <- cbind(sf_df, "Self_Sample" = shp_points$selfsample[nearest_points],
+                           "Road_Class"=shp_points$MTFCC[nearest_points]) %>%
+      dplyr::mutate(NN_Dist=calculate_euclidean_distance(.$geometry,shp_points$geometry[nearest_points]))%>%
+      filter(Self_Sample==0) %>%
+      dplyr::filter(NN_Dist<30) %>%
+      dplyr::filter(Road_Class=="S1100"|Road_Class=="S1200"|Road_Class=="S1400"|Road_Class=="S1630"|Road_Class=="S1640"|Road_Class=="S1740")%>%
+      dplyr::select(-Self_Sample) %>%
+      dplyr::select(-NN_Dist)
+    
+    return(sf_df_removed)
+  }
   
   final_splined_indicators <- splined_indicators %>% 
     dplyr::select(BC,CO2,NOx,UFP,splined_bc,splined_co2,splined_no,splined_no2,splined_ufp,Lat1,Long1,LST) %>% 
     st_as_sf(.,coords = c("Long1", "Lat1"), crs = "EPSG:4326") %>%
     st_transform("EPSG:32615") %>%
     shapefile_processing()
+}
+
+## Performing analysis on the number of observations splined in the dataset
+{
   
+  ## Total number of observations splined
   if(T){
     no_bc <- final_splined_indicators %>%
       dplyr::filter(splined_bc==1) %>%
@@ -247,8 +252,13 @@ list_to_tibble <- function(data_subset_list){
       nrow()
     
     print(no_nox)
-
   }
+  
+  ## How many splined observations are present in repeat patterns of 6-s or less?
+  ## This would simply be answered with the number of splined observations, as I set 
+  ## max.gap = 6
+  
+  
 }
 
 ## Saving data to send to Kathy.
